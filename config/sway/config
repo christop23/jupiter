@@ -1,14 +1,20 @@
-# Default config for sway
-#
-# Copy this to ~/.config/sway/config and edit it to your liking.
-#
-# Read `man 5 sway` for a complete reference.
-
-# Startup
-
-font pango:FiraCodeNerdFont 10
+# Autostart
 exec mako
 exec udiskie
+
+# Style
+font pango:FiraCodeNerdFont 10px
+default_border pixel 1
+titlebar_border_thickness 1
+gaps outer 10
+gaps inner 10
+
+## Window decoration
+# class                 border  backgr. text    indicator child_border
+client.focused          #c49ec4 #262626 #f0f0f0 #9ec3c4   #c49ec4
+client.focused_inactive #c49ec4 #262626 #f0f0f0 #9ec3c4   #c49ec4
+client.unfocused        #c49ec4 #0f0f0f #f0f0f0 #9ec3c4   #4c4c4c
+client.urgent           #c49ec4 #c49ec4 #0f0f0f #9ec3c4   #c49ec4
 
 ### Variables
 #
@@ -20,7 +26,7 @@ set $down j
 set $up k
 set $right l
 # Your preferred terminal emulator
-set $term alacritty
+set $term kitty
 # Your preferred application launcher
 # Note: pass the final command to swaymsg so that the resulting window can be opened
 # on the original workspace that the command was run on.
@@ -29,7 +35,7 @@ set $menu bemenu-run --center --fn 'Ivoseka Nerd Font [12]' | xargs swaymsg exec
 ### Output configuration
 #
 # Default wallpaper (more resolutions are available in /usr/share/backgrounds/sway/)
-output * bg  ~/Downloads/wallpaper.jpg fill
+output * bg  /home/christo/Downloads/wallpaper.jpg fill
 #
 # Example configuration:
 #

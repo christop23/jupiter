@@ -20,9 +20,6 @@ export PAGER='less'
 export QT_QPA_PLATFORM=wayland
 export QT_WAYLAND_DISABLE_WINDOWDECORATION="1"
 
-# etesync-dav 
-export ETESYNC_URL=https://low-key.me:9000
-
 # FZF settings
 export FZF_DEFAULT_OPTS='
     --exact

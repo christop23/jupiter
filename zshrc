@@ -82,6 +82,9 @@ plugins=(
 
 source $ZSH/oh-my-zsh.sh
 
+# Activate dir colors
+test -r ~/.dir_colors && eval $(dircolors ~/.dir_colors)
+
 # User configuration
 
 # export MANPATH="/usr/local/man:$MANPATH"
@@ -108,7 +111,17 @@ source $ZSH/oh-my-zsh.sh
 # alias zshconfig="mate ~/.zshrc"
 # alias ohmyzsh="mate ~/.oh-my-zsh"
 
+# Suffix aliases
+alias -s md=nvim
+alias -s gmi=nvim
+alias -s png=imv
+alias -s jpg=imv
+alias -s pdf=zathura
+
 [ -f ~/.fzf.zsh ] && source ~/.fzf.zsh
+
+# Setup starship prompt
+eval "$(starship init zsh)"
 
 export FZF_DEFAULT_COMMAND='fd --type f'
 export FZF_DEFAULT_OPTS="--layout=reverse --inline-info --height=80%"

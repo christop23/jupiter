@@ -44,11 +44,5 @@ export FZF_DEFAULT_OPTS='
     --color=spinner:6
     --color=border:8'
 
-# Buku colors
-export BUKU_COLORS='hMhhK'
-
-# pfetch information 
-export PF_INFO="ascii title os kernel uptime pkgs memory editor palette"
-
 # Prevent loading ranger's config twice
 export RANGER_LOAD_DEFAULT_RC="FALSE"

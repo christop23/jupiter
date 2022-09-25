@@ -38,7 +38,7 @@ set $term kitty
 # Your preferred application launcher
 # Note: pass the final command to swaymsg so that the resulting window can be opened
 # on the original workspace that the command was run on.
-set $menu bemenu-run --center --fn 'FiraCodeNerdFont 14' | xargs swaymsg exec --
+set $menu bemenu-run --bottom --fn 'FiraCodeNerdFont 14' | xargs swaymsg exec --
 
 # Default wallpaper (more resolutions are available in /usr/share/backgrounds/sway/)
 output * bg  /home/christo/Downloads/wallpaper.jpg fill

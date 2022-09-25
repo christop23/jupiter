@@ -1,154 +1,102 @@
-/* waybar style.css */
-@define-color bgcolor #a3b8c8;	/* background color */
-@define-color fgcolor #000000;  /* foreground color */
-@define-color charging #07fb05; /* battery charging color */
-@define-color plugged #acfcad;  /* ac plugged color */
-@define-color critical #ff0000; /* critical color */
-@define-color warning #f3f809;  /* warning color */
-@define-color hover #94a6e3;    /* mouse hover over workspace color */ 
-@define-color bgfocus #5e5873;  /* unfocused workspace color background */
-@define-color fgfocus #a2baef; /* unfocused workspace color foreground */
-
-/* Reset all styles */
 * {
-	border: none;
-	border-radius: 0;
-	min-height: 0;
-	margin: 0;
-	padding: 0;
+  border: none;
+  border-radius: 0;
+  font-family: RobotoMono Nerd Font;
+  font-size: 14px;
+  font-weight: 500;
 }
 
-#waybar {
-	background: transparent;
-	font-family: FiraCodeNerdFont;
-	font-size: small;
-	color: @fgcolor;
+window#waybar {
+  background-color: #282828;
+  color: #ebdbb2;
+  transition-property: background-color;
+  transition-duration: 0.5s;
+  border-bottom: solid 0px #3c3836;
+}
+
+window#waybar.hidden {
+  opacity: 0.2;
 }
 
 #workspaces button {
-	padding-left: 10px;
-	padding-right: 10px;
-  background: @bgfocus;
-	color: @fgfocus;
+  padding: 0 5px;
+  color: #ebdbb2;
+  border-radius: 5px;
 }
 
 #workspaces button.focused {
-	background: @bgcolor;
-	color: @fgcolor;
+  background-color: #ebdbb2;
+  color: #282828;
+  border-bottom: none;
 }
 
-#workspaces button:hover {
-	background: @hover;
-	color: @fgcolor;
-	transition: none;
-	box-shadow: inherit;
-	text-shadow: inherit;
+#workspaces button.urgent {
+  background-color: #cc241d;
 }
 
-#custom-cap-left, #custom-cap-right {
-	color: @bgcolor;
-	font-size: 24px;
+widget > * {
+  margin-top: 6px;
+  margin-bottom: 6px;
 }
 
-#idle_inhibitor {
-	background: @bgcolor;
-	padding-left: 20px;
-	padding-right: 10px;
+.modules-left > widget > * {
+  margin-left: 12px;
+  margin-right: 12px;
 }
 
-#custom-offswitch {
-	background: @bgcolor;
-	padding-right: 20px;
-	padding-left: 10px;
+.modules-left > widget:first-child > * {
+  margin-left: 6px;
 }
 
-#custom-weather,
-#cpu, 
-#temperature, 
-#memory, 
-#pulseaudio, 
-#custom-vpn,
-#disk,
-#battery, 
-#clock, 
-#network {
-	background: @bgcolor;
-	padding-left: 10px;
-	padding-right: 10px;
+.modules-left > widget:last-child > * {
+  margin-right: 18px;
 }
 
-#disk.critical {
-		color: @critical;
+.modules-right > widget > * {
+  padding: 0 12px;
+  margin-left: 0;
+  margin-right: 0;
+  color: #282828;
+  background-color: #ebdbb2;
 }
 
-#temperature.critical {                                                           
-		color: @critical;                                                    
+.modules-right > widget:first-child > * {
+  border-radius: 5px 0 0 5px;
 }
 
-#cpu.critical {                                                           
-		color: @critical;                                                    
+.modules-right > widget:last-child > * {
+  border-radius: 0 5px 5px 0;
+  margin-right: 6px;
 }
 
-#memory.critical {                                                           
-		color: @critical;                                                    
+#mode {
+  background: transparent;
+  color: #fb4934;
 }
 
-@keyframes blink1 {                                                                
-	to {
-		color: @plugged;
-	}
-}
-
-#battery.plugged {
-background-color: @bgcolor;
-		animation-name: blink1;                                                          
-		animation-duration: 0.5s;                                                       
-		animation-timing-function: linear;                                              
-		animation-iteration-count: infinite;                                            
-		animation-direction: alternate;
-}
-
-@keyframes blink2 {
-	to {
-		background-color: @charging;
-	}
-}
-
-#battery.charging {
-/*  background-color: @bgcolor; */
-		animation-name: blink2;                                                          
-		animation-duration: 2.0s;                                                       
-		animation-timing-function: ease-in-out;                                              
-		animation-iteration-count: infinite;                                            
-		animation-direction: alternate;
-}
-
-@keyframes blink3 {
-	to {
-		background-color: @warning;
-	}
-}
-
-#battery.warning:not(.charging) {
-/*  background-color: @bgcolor; */
-  	animation-name: blink3;
-  	animation-duration: 0.7s;
-  	animation-timing-function: ease-in-out;
-  	animation-iteration-count: infinite;
-  	animation-direction: alternate;
-}
-
-@keyframes blink4 {
-	to {
-		background-color: @critical;
-	}
+@keyframes blink {
+  to {
+    color: #ebdbb2;
+  }
 }
 
 #battery.critical:not(.charging) {
- /* background-color: @bgcolor; */
-  	animation-name: blink4;
-  	animation-duration: 0.8s;
-  	animation-timing-function: ease-in-out;
-  	animation-iteration-count: infinite;
-  	animation-direction: alternate;
+  animation-name: blink;
+  animation-duration: 1s;
+  animation-timing-function: linear;
+  animation-iteration-count: infinite;
+  animation-direction: alternate;
+}
+
+label:focus {
+  background-color: #282828;
+}
+
+tooltip {
+  border-radius: 5px;
+  background: #504945;
+}
+
+tooltip label {
+  color: #ebdbb2;
 }

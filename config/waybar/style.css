@@ -74,20 +74,6 @@ widget > * {
   color: #fb4934;
 }
 
-@keyframes blink {
-  to {
-    color: #ebdbb2;
-  }
-}
-
-#battery.critical:not(.charging) {
-  animation-name: blink;
-  animation-duration: 1s;
-  animation-timing-function: linear;
-  animation-iteration-count: infinite;
-  animation-direction: alternate;
-}
-
 label:focus {
   background-color: #282828;
 }

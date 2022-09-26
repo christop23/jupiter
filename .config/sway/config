@@ -56,7 +56,7 @@ output * bg  /home/christo/Downloads/wallpaper.jpg fill
 
 # Autotiling:
 #
-exec_always ~/.config/sway/autotiling.py
+exec_always autotiling
 
 ### Key bindings
 #

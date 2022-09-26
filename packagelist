@@ -15,10 +15,9 @@ mpv
 ncmpcpp
 neofetch
 nerd-fonts-fira-code
-nerd-fonts-terminus
-nnn
 pacman-contrib
 paru-bin
+polkit
 python-spotdl
 reflector
 ripgrep
@@ -29,9 +28,7 @@ telegram-desktop
 timidity++
 udiskie
 ufw
-vlc
 xdg-user-dirs
 xplr
-zram-generator
 zsh-autosuggestions
 zsh-syntax-highlighting

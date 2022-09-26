@@ -23,6 +23,7 @@ python-spotdl
 reflector
 ripgrep
 shell-color-scripts
+skim
 starship
 telegram-desktop
 timidity++

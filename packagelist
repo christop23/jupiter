@@ -3,6 +3,7 @@ android-tools
 bat
 cloudflare-warp-bin
 exa
+fd
 firefox
 grimshot
 htop
@@ -20,6 +21,7 @@ pacman-contrib
 paru-bin
 python-spotdl
 reflector
+ripgrep
 shell-color-scripts
 starship
 telegram-desktop

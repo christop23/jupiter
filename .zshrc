@@ -68,7 +68,6 @@ alias ll='ls -l'
 alias la='ls -a'
 alias lla='ls -la'
 alias duh='du -h'
-alias icat='wezterm imgcat'
 
 ## Fuzzy finder utilities
 alias sk='sk --reverse'
@@ -78,13 +77,6 @@ alias fgd='cd $(dirname $(fd -H -g \*.git ~/*/) | sk)'
 
 ## Quickly start a dev server
 alias sv='python -m http.server 3000'
-
-## Pandoc settings mostly for compiling markdown
-alias mdc='pandoc \
-  -s --pdf-engine=xelatex \
-  -V "monofont:FiraCode Nerd Font" \
-  -V "numbersections:true" \
-  -V "geometry:margin=30mm"'
 
 # ---- PLUGINS ----------------------------------
 

@@ -20,6 +20,7 @@ pacman-contrib
 paru-bin
 polkit
 python-spotdl
+ranger
 reflector
 ripgrep
 shell-color-scripts
@@ -30,6 +31,5 @@ timidity++
 udiskie
 ufw
 xdg-user-dirs
-xplr
 zsh-autosuggestions
 zsh-syntax-highlighting

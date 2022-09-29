@@ -41,7 +41,7 @@ set $term kitty
 set $menu bemenu-run --bottom --fn 'FiraCodeNerdFont 14' | xargs swaymsg exec --
 
 # Default wallpaper (more resolutions are available in /usr/share/backgrounds/sway/)
-output * bg  /home/christo/Downloads/wallpaper.jpg fill
+output * bg  /usr/share/backgrounds/sway/Sway_Wallpaper_Blue_1366x768.png fill
 
 # Idle configuration
 

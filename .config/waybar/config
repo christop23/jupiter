@@ -1,39 +1,92 @@
 {
-  "modules-left": ["sway/workspaces", "sway/window", "sway/mode"],
-  "modules-right": ["pulseaudio", "network", "clock"],
-  "clock": {
-    "tooltip-format": "<big>{:%Y %B}</big>\n<tt><small>{calendar}</small></tt>",
-    "format": "{:%b %d(%H:%M) }"
+  "modules-left": ["idle_inhibitor", "sway/workspaces", "sway/window", "sway/mode"],
+  "modules-right": ["custom/weather", "cpu, "temperature", "memory", "disk", "pulseaudio", "network", "clock", "custom/offswitch"],
+"clock": {
+  "format": " {:%a %b %d %H:%M}",
+  "tooltip": false,
+  "min-length": 18,
+},
+"custom/offswitch": {
+  "tooltip": false,
+  "format": "",
+  "interval": "once",
+  "on-click": "systemctl poweroff",
+},
+"pulseaudio": {
+  "tooltip": false,
+  "min-length": 5,
+  "format": "{icon} {volume}%",
+  "format-bluetooth": "{icon} {volume}%",
+  "format-muted": "MUTE",
+  "format-icons": {
+  "headphone": "",
+  "headset": "",
+  "default": ["", "", ""],
   },
-  "pulseaudio": {
-    "format": "{volume}% {icon} {format_source}",
-    "format-bluetooth": "{volume}% {icon} {format_source}",
-    "format-bluetooth-muted": " {icon} {format_source}",
-    "format-muted": " {format_source}",
-    "format-source": "{volume}% ",
-    "format-source-muted": "",
-    "format-icons": {
-      "headphone": "",
-      "hands-free": "",
-      "headset": "",
-      "phone": "",
-      "portable": "",
-      "car": "",
-      "default": ["", "", ""]
-    },
     "on-click": "pavucontrol"
   },
-  "network": {
-    "format": "{ifname}",
-    "format-wifi": "Connected ",
-    "format-ethernet": "{ipaddr}/{cidr} ",
-    "format-disconnected": "Disconnected 睊", //An empty format will hide the module.
-    "tooltip-format": "{ifname} via {gwaddr} ",
-    "tooltip-format-wifi": "{essid} ({signalStrength}%) ",
-    "tooltip-format-ethernet": "{ifname} ",
-    "tooltip-format-disconnected": "Disconnected",
-    "max-length": 50
+  "custom/weather": {
+  "tooltip": false,
+  "min-length": 5,
+  "exec": "curl 'https://wttr.in/Thrissur?m&format='%t''",
+  "interval": 3600,
+},
+"idle_inhibitor": {
+  "tooltip": false,
+	"format": "{icon}",
+	"format-icons": {
+	"activated": "",
+	"deactivated": "",
   },
+},
+"cpu": {
+  "interval": 4,
+  "min-length": 6,
+  "format": " {usage}%",
+  "tooltip": false,
+  "states": {
+  "critical": 90,
+  },
+},
+"temperature": {
+  "tooltip": false,
+  "min-length": 5,
+  "critical-threshold": 90,
+  "format": "{icon} {temperatureC}°C",
+  "format-critical": "{icon} {temperatureC}°C",
+  "format-icons": {
+  "default": ["", "", "", "", ""],
+  },
+},
+"memory": {
+  "tooltip": false,
+  "format": " {percentage}%",
+  "states": {
+    "critical":90,
+  },
+  "min-length": 5,
+},
+"disk": {
+  "tooltip": false,
+  "path": "/",
+  "interval": 60,
+  "min-length": 5,
+  "format": " {percentage_used}%",
+  "states": {
+  "critical": 90,
+  },
+},
+"network": {
+  "interval": 2,
+  "format-wifi": " {ipaddr}",
+  "format-ethernet": " {ipaddr}",
+  "format-linked": " {ipaddr}",
+  "format-disconnected": " Disconnected",
+  "format-disabled": "",
+  "tooltip": false,
+  "max-length": 20,
+  "min-length": 6,
+},
   "sway/workspaces": {
     "disable-scroll": true
   }

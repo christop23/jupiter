@@ -8,7 +8,7 @@
 
 window#waybar {
   background-color: #282828;
-  color: #ebdbb2;
+  color: #e6e6fa;
   transition-property: background-color;
   transition-duration: 0.5s;
   border-bottom: solid 0px #3c3836;
@@ -20,12 +20,12 @@ window#waybar.hidden {
 
 #workspaces button {
   padding: 0 5px;
-  color: #ebdbb2;
+  color: #e6e6fa;
   border-radius: 5px;
 }
 
 #workspaces button.focused {
-  background-color: #ebdbb2;
+  background-color: #e6e6fa;
   color: #282828;
   border-bottom: none;
 }
@@ -57,7 +57,7 @@ widget > * {
   margin-left: 0;
   margin-right: 0;
   color: #282828;
-  background-color: #ebdbb2;
+  background-color: #e6e6fa;
 }
 
 .modules-right > widget:first-child > * {
@@ -84,5 +84,5 @@ tooltip {
 }
 
 tooltip label {
-  color: #ebdbb2;
+  color: #e6e6fa;
 }

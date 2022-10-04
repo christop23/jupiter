@@ -1,6 +1,6 @@
 {
   "modules-left": ["idle_inhibitor", "sway/workspaces", "sway/window", "sway/mode"],
-  "modules-right": ["custom/weather", "cpu, "temperature", "memory", "disk", "pulseaudio", "network", "clock", "custom/offswitch"],
+  "modules-right": ["custom/weather", "cpu", "temperature", "memory", "disk", "pulseaudio", "network", "clock", "custom/offswitch"],
 "clock": {
   "format": " {:%a %b %d %H:%M}",
   "tooltip": false,

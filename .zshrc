@@ -83,6 +83,9 @@ alias sv='python -m http.server 3000'
 ## Starship phrompt
 eval "$(starship init zsh)"
 
+## Random color script
+colorscript random
+
 ## Syntax highlighting and suggestion
 . /usr/share/zsh/plugins/zsh-autosuggestions/zsh-autosuggestions.zsh
 . /usr/share/zsh/plugins/zsh-syntax-highlighting/zsh-syntax-highlighting.zsh

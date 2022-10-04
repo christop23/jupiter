@@ -80,7 +80,7 @@ alias sv='python -m http.server 3000'
 
 # ---- PLUGINS ----------------------------------
 
-## Starship phrompt
+## Starship prompt
 eval "$(starship init zsh)"
 
 ## Random color script

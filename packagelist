@@ -20,6 +20,7 @@ pacman-contrib
 paru-bin
 polkit
 python-spotdl
+qt5ct
 ranger
 reflector
 ripgrep

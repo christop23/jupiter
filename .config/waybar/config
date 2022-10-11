@@ -1,6 +1,6 @@
 {
   "modules-left": ["idle_inhibitor", "sway/workspaces", "sway/window", "sway/mode"],
-  "modules-right": ["custom/weather", "cpu", "temperature", "memory", "disk", "pulseaudio", "network", "clock", "custom/offswitch"],
+  "modules-right": ["custom/weather", "disk", "pulseaudio", "network", "clock", "custom/offswitch"],
 "clock": {
   "format": " {:%a %b %d %H:%M}",
   "tooltip": false,
@@ -38,33 +38,6 @@
 	"activated": "",
 	"deactivated": "",
   },
-},
-"cpu": {
-  "interval": 4,
-  "min-length": 6,
-  "format": " {usage}%",
-  "tooltip": false,
-  "states": {
-  "critical": 90,
-  },
-},
-"temperature": {
-  "tooltip": false,
-  "min-length": 5,
-  "critical-threshold": 90,
-  "format": "{icon} {temperatureC}°C",
-  "format-critical": "{icon} {temperatureC}°C",
-  "format-icons": {
-  "default": ["", "", "", "", ""],
-  },
-},
-"memory": {
-  "tooltip": false,
-  "format": " {percentage}%",
-  "states": {
-    "critical":90,
-  },
-  "min-length": 5,
 },
 "disk": {
   "tooltip": false,

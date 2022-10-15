@@ -7,7 +7,7 @@
   "min-length": 18,
 },
 "tray": {
-  "icon-size": 11,
+  //"icon-size": 11,
   "spacing": 5
 },
 "custom/offswitch": {

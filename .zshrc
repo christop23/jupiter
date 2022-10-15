@@ -87,7 +87,7 @@ eval "$(starship init zsh)"
 colorscript random
 
 ## Syntax highlighting and suggestion
-. /usr/share/zsh/plugins/zsh-autosuggestions/zsh-autosuggestions.zsh
-. /usr/share/zsh/plugins/zsh-syntax-highlighting/zsh-syntax-highlighting.zsh
+source /usr/share/zsh/plugins/zsh-autosuggestions/zsh-autosuggestions.zsh
+source /usr/share/zsh/plugins/zsh-syntax-highlighting/zsh-syntax-highlighting.zsh
 
 ZSH_AUTOSUGGEST_STRATEGY=(history completion)

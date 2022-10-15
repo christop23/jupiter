@@ -9,6 +9,7 @@ firefox
 grimshot
 htop
 imv
+kitty
 linux-zen
 mpc
 mpd
@@ -19,8 +20,7 @@ nerd-fonts-fira-code
 pacman-contrib
 paru-bin
 polkit
-python-spotdl
-qt5ct
+polkit-gnome
 ranger
 reflector
 ripgrep

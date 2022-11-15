@@ -1,4 +1,3 @@
-android-file-transfer
 android-tools
 autotiling
 bat
@@ -10,15 +9,14 @@ grimshot
 htop
 imv
 kitty
-linux-zen
 mpc
 mpd
 mpv
 ncmpcpp
 neofetch
 nerd-fonts-fira-code
+nerd-fonts-mononoki
 pacman-contrib
-paru-bin
 polkit
 polkit-gnome
 ranger
@@ -30,7 +28,6 @@ starship
 swaybg
 telegram-desktop
 timidity++
-udiskie
 ufw
 xdg-user-dirs
 zsh-autosuggestions

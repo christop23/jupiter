@@ -5,10 +5,10 @@
 
 # Autostart
 exec mako
-exec udiskie
+exec --no-startup-id /usr/lib/polkit-gnome/polkit-gnome-authentication-agent-1
 
 # Style
-font pango:FiraCodeNerdFont 10
+font pango:Fira Code Nerd Font 12
 default_border pixel 1
 titlebar_border_thickness 1
 gaps outer 10
@@ -33,14 +33,14 @@ set $up k
 set $right l
 
 # Your preferred terminal emulator
-set $term kitty
+set $term alacritty
 
 # Your preferred application launcher
 # Note: pass the final command to swaymsg so that the resulting window can be opened
 # on the original workspace that the command was run on.
-set $menu bemenu-run --bottom --fn 'FiraCodeNerdFont 14' | xargs swaymsg exec --
+set $menu bemenu-run --bottom --fn 'Fira Code Nerd Font 14' | xargs swaymsg exec --
 
-# Default wallpaper (more resolutions are available in /usr/share/backgrounds/sway/)
+# Default wallpaper
 output * bg  /usr/share/backgrounds/sway/Sway_Wallpaper_Blue_1366x768.png fill
 
 # Idle configuration

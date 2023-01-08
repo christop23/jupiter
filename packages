@@ -50,6 +50,7 @@ ttf-sourcecodepro-nerd
 ufw
 xdg-user-dirs
 xorg-xwayland
+zathura
 zsh
 zsh-autosuggestions
 zsh-syntax-highlighting

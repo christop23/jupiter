@@ -1,3 +1,5 @@
+## Before running ohmyzsh installation setup, make sure zsh, polkit and git packages are installed
+
 ## Packages to remove
 
 foot

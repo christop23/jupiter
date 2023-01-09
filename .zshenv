@@ -1,5 +1,6 @@
-# Firefox Wayland
+# Wayland Setup
 
+export QT_QPA_PLATFORM=wayland
 export MOZ_ENABLE_WAYLAND=1
 
 # Default Apps

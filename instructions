@@ -43,7 +43,6 @@ paru-bin
 qt6-wayland
 transmission-gtk
 reflector
-ripgrep
 shell-color-scripts
 skim
 starship

@@ -1,70 +1,100 @@
 {
-  "modules-left": ["idle_inhibitor", "sway/workspaces", "sway/window", "sway/mode"],
-  "modules-right": ["tray", "custom/weather", "disk", "pulseaudio", "network", "clock", "custom/offswitch"],
-"clock": {
-  "format": " {:%a %b %d %H:%M}",
-  "tooltip": false,
-  "min-length": 18,
-},
-"tray": {
-  "icon-size": 11,
-  "spacing": 5,
-},
-"custom/offswitch": {
-  "tooltip": false,
-  "format": "",
-  "interval": "once",
-  "on-click": "systemctl poweroff",
-},
-"pulseaudio": {
-  "tooltip": false,
-  "min-length": 5,
-  "format": "{icon} {volume}%",
-  "format-bluetooth": "{icon} {volume}%",
-  "format-muted": "MUTE",
-  "format-icons": {
-  "headphone": "",
-  "headset": "",
-  "default": ["", "", ""],
-  },
-    "on-click": "pavucontrol"
-  },
-  "custom/weather": {
-  "tooltip": false,
-  "min-length": 5,
-  "exec": "curl 'https://wttr.in/Thrissur?m&format='%t''",
-  "interval": 3600,
-},
-"idle_inhibitor": {
-  "tooltip": false,
-	"format": "{icon}",
-	"format-icons": {
-	"activated": "",
-	"deactivated": "",
-  },
-},
-"disk": {
-  "tooltip": false,
-  "path": "/",
-  "interval": 60,
-  "min-length": 5,
-  "format": " {percentage_used}%",
-  "states": {
-  "critical": 90,
-  },
-},
-"network": {
-  "interval": 2,
-  "format-wifi": " {ipaddr}",
-  "format-ethernet": " {ipaddr}",
-  "format-linked": " {ipaddr}",
-  "format-disconnected": " Disconnected",
-  "format-disabled": "",
-  "tooltip": false,
-  "max-length": 20,
-  "min-length": 6,
-},
+  "modules-left": [
+    "sway/workspaces",
+    "temperature",
+    "idle_inhibitor",
+    "mpd",
+  ],
+  "modules-center": [
+    "clock"
+  ],
+  "modules-right": [
+    "pulseaudio",
+    "memory",
+    "cpu",
+    "network",
+    "custom/offswitch",
+    "tray",
+  ],
   "sway/workspaces": {
-    "disable-scroll": true
-  }
+    "disable-scroll": true,
+  },
+  "idle_inhibitor": {
+    "format": "{icon}",
+    "format-icons": {
+      "activated": " ",
+      "deactivated": " "
+    },
+    "tooltip": false
+  },
+  "pulseaudio": {
+    "scroll-step": 1,
+    "format": "{icon} {volume}%", 
+    "format-muted": "  Mute",
+    "format-icons": {
+      "default": [" ", " ", " "]
+    },
+    "states": {
+      "warning": 50,
+    },
+    "scroll-step": 1,
+    "on-click": "pactl set-sink-mute @DEFAULT_SINK@ toggle",
+    "on-click-right": "pavucontrol",
+    "tooltip": false,
+  },
+  "clock": {
+    "on-click": "~/.config/waybar/wallpaper_random.sh &",
+    "interval": 1,
+    "format": "{:%I:%M %p  %A %b %d}",
+    "tooltip": true,
+    "tooltip-format": "<tt>{calendar}</tt>",
+  },
+  "memory": {
+    "interval": 1,
+    "format": "  {percentage}%",
+    "states": {
+      "warning": 85,
+    },
+  },
+  "cpu": {
+    "interval": 1,
+    "format": "  {usage}%"
+  },
+  "mpd": {
+    "max-length": 25,
+    "format": "<span foreground='#bb9af7'> </span> {title}",
+    "format-paused": " {title}",
+    "format-stopped":"<span foreground='#bb9af7'> </span>",
+    "format-disconnected": "",
+    "on-click": "mpc --quiet toggle",
+    "on-click-right": "mpc ls | mpc add",
+    "on-click-middle": "alacritty -e ncmpcpp",
+    "on-scroll-up": "mpc --quiet prev",
+    "on-scroll-down": "mpc --quiet next",
+    "smooth-scrolling-threshold":5,
+    "tooltip-format": "{title} - {artist} ({elapsedTime:%M:%S}/{totalTime:%H:%M:%S})"
+  },
+  "network": {
+    "interval": 1,
+    "format-wifi": "  {ipaddr}",
+    "format-ethernet": "  {ipaddr}",
+    "format-linked": " {ipaddr}",
+    "format-disconnected": "  Disconnected",
+    "tooltip": false
+  },
+  "temperature": {
+    "critical-threshold": 80,
+    "tooltip": false,
+    "format": " {temperatureC}°C",
+    "interval": 30
+  },
+  "custom/offswitch": {
+    "format": " ",
+    "on-click": "systemctl poweroff",
+    "tooltip": false,
+  },
+  "tray": {
+    "icon-size": 15,
+    "spacing": 5,
+  },
 }

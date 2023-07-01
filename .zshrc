@@ -41,8 +41,8 @@ alias sv='python -m http.server 3000'
 ## Starship prompt
 eval "$(starship init zsh)"
 
-## Random color script
-colorscript random
+## Display neofetch
+neofetch
 
 ## Syntax highlighting and suggestion
 source /usr/share/zsh/plugins/zsh-autosuggestions/zsh-autosuggestions.zsh

@@ -1,13 +1,14 @@
 anchor=bottom-right
 font=Fira Code Nerd Font 10
-background-color=#3b4252
-text-color=#eceff4
+background-color=#1E1D2F
+text-color=#D9E0EE
 width=350
 margin=0,20,20
 padding=10
 border-size=2
-border-color=#4c566a
+border-color=#96CDFB
 border-radius=5
+progress-color=over #302D41
 default-timeout=10000
 group-by=summary
 

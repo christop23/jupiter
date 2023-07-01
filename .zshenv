@@ -2,6 +2,7 @@
 
 export QT_QPA_PLATFORM=wayland
 export MOZ_ENABLE_WAYLAND=1
+export XDG_CURRENT_DESKTOP=sway
 
 # Default Apps
 

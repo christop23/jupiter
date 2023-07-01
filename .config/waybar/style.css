@@ -1,88 +1,108 @@
 * {
-  border: none;
-  border-radius: 0;
-  font-family: Iosevka Nerd Font;
-  font-size: 14px;
-  font-weight: 500;
-}
-
-window#waybar {
-  background-color: #282828;
-  color: #e6e6fa;
+  font-family: "JetBrainsMono Nerd Font";
+  font-size: 12pt;
+  font-weight: bold;
+  border-radius: 0px;
   transition-property: background-color;
   transition-duration: 0.5s;
-  border-bottom: solid 0px #3c3836;
 }
-
-window#waybar.hidden {
-  opacity: 0.2;
+@keyframes blink_red {
+  to {
+    background-color: rgb(242, 143, 173);
+    color: rgb(26, 24, 38);
+  }
 }
-
+.warning, .critical, .urgent {
+  animation-name: blink_red;
+  animation-duration: 1s;
+  animation-timing-function: linear;
+  animation-iteration-count: infinite;
+  animation-direction: alternate;
+}
+window#waybar {
+  background-color: transparent;
+}
+window > box {
+  margin-left: 5px;
+  margin-right: 5px;
+  margin-top: 5px;
+  background-color: rgb(30, 30, 46);
+}
+#workspaces {
+  padding-left: 0px;
+  padding-right: 4px;
+}
 #workspaces button {
-  padding: 0 5px;
-  color: #e6e6fa;
-  border-radius: 5px;
+  padding-top: 5px;
+  padding-bottom: 5px;
+  padding-left: 6px;
+  padding-right: 6px;
 }
-
 #workspaces button.focused {
-  background-color: #e6e6fa;
-  color: #282828;
-  border-bottom: none;
+  background-color: rgb(181, 232, 224);
+  color: rgb(26, 24, 38);
 }
-
 #workspaces button.urgent {
-  background-color: #cc241d;
+  color: rgb(26, 24, 38);
 }
-
-widget > * {
-  margin-top: 6px;
-  margin-bottom: 6px;
+#workspaces button:hover {
+  background-color: rgb(248, 189, 150);
+  color: rgb(26, 24, 38);
 }
-
-.modules-left > widget > * {
-  margin-left: 12px;
-  margin-right: 12px;
-}
-
-.modules-left > widget:first-child > * {
-  margin-left: 6px;
-}
-
-.modules-left > widget:last-child > * {
-  margin-right: 18px;
-}
-
-.modules-right > widget > * {
-  padding: 0 12px;
-  margin-left: 0;
-  margin-right: 0;
-  color: #282828;
-  background-color: #e6e6fa;
-}
-
-.modules-right > widget:first-child > * {
-  border-radius: 5px 0 0 5px;
-}
-
-.modules-right > widget:last-child > * {
-  border-radius: 0 5px 5px 0;
-  margin-right: 6px;
-}
-
-#mode {
-  background: transparent;
-  color: #fb4934;
-}
-
-label:focus {
-  background-color: #282828;
-}
-
 tooltip {
-  border-radius: 5px;
-  background: #504945;
+  background: rgb(48, 45, 65);
+}
+tooltip label {
+  color: rgb(217, 224, 238);
+}
+#mode, #clock, #memory, #temperature, #cpu, #mpd, #idle_inhibitor, #pulseaudio, #network, #custom-offswitch {
+  padding-left: 10px;
+  padding-right: 10px;
+}
+/* #mode { */
+/* 	margin-left: 10px; */
+/* 	background-color: rgb(248, 189, 150); */
+/*     color: rgb(26, 24, 38); */
+/* } */
+#memory {
+  color: rgb(181, 232, 224);
+}
+#cpu {
+  color: rgb(245, 194, 231);
+}
+#clock {
+  color: rgb(217, 224, 238);
+}
+#idle_inhibitor {
+  color: rgb(221, 182, 242);
+}
+#temperature {
+  color: rgb(150, 205, 251);
+}
+#pulseaudio {
+  color: rgb(245, 224, 220);
+}
+#network {
+  color: #ABE9B3;
 }
 
-tooltip label {
-  color: #e6e6fa;
+#network.disconnected {
+  color: rgb(255, 255, 255);
+}
+#custom-offswitch {
+  color: rgb(242, 143, 173);
+}
+#tray {
+  padding-right: 8px;
+  padding-left: 10px;
+}
+#mpd.paused {
+  color: #414868;
+  font-style: italic;
+}
+#mpd.stopped {
+  background: transparent;
+}
+#mpd {
+  color: #c0caf5;
 }

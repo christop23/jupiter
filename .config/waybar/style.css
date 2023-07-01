@@ -55,15 +55,10 @@ tooltip {
 tooltip label {
   color: rgb(217, 224, 238);
 }
-#mode, #clock, #memory, #temperature, #cpu, #mpd, #idle_inhibitor, #pulseaudio, #network, #custom-offswitch {
+#clock, #memory, #temperature, #cpu, #mpd, #idle_inhibitor, #pulseaudio, #network, #custom-offswitch {
   padding-left: 10px;
   padding-right: 10px;
 }
-/* #mode { */
-/* 	margin-left: 10px; */
-/* 	background-color: rgb(248, 189, 150); */
-/*     color: rgb(26, 24, 38); */
-/* } */
 #memory {
   color: rgb(181, 232, 224);
 }

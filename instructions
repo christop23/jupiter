@@ -39,6 +39,10 @@ pacman-contrib
 polkit
 polkit-gnome
 paru-bin
+
+# dependency for autotiling script
+python-i3ipc
+
 qt6-wayland
 reflector
 skim

@@ -18,13 +18,10 @@ bemenu
 exa
 fd
 firefox
-flameshot
 git
 gvfs-mtp
-htop
 imv
 libnotify
-linux
 mako
 mpc
 mpd
@@ -36,14 +33,12 @@ neovim
 noto-fonts
 noto-fonts-emoji
 pacman-contrib
-polkit
 polkit-gnome
 paru-bin
 
 # dependency for autotiling script
 python-i3ipc
 
-qt6-wayland
 reflector
 skim
 starship
@@ -53,9 +48,11 @@ ttf-firacode-nerd
 ttf-font-awesome
 ttf-iosevka-nerd
 ttf-jetbrains-mono-nerd
-xdg-desktop-portal-wlr
+
+# pick the wlr variant for xdg-desktop-portal
+xdg-desktop-portal
+
 xdg-user-dirs
-xorg-xwayland
 zathura
 zsh
 zsh-autosuggestions

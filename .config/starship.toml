@@ -1,22 +1,25 @@
+# Sets user-defined palette
+palette = "catppuccin_macchiato"
+
 ## FIRST LINE/ROW: Info & Status
 # First param ─┌
 [username]
 format = " [╭─$user]($style)@"
 show_always = true
-style_root = "bold red"
-style_user = "bold red"
+style_root = "sapphire"
+style_user = "rosewater"
 
 # Second param
 [hostname]
 disabled = false
 format = "[$hostname]($style) in "
 ssh_only = false
-style = "bold dimmed red"
+style = "mauve"
 trim_at = "-"
 
 # Third param
 [directory]
-style = "purple"
+style = "peach"
 truncate_to_repo = true
 truncation_length = 0
 truncation_symbol = "repo: "
@@ -31,7 +34,7 @@ ahead = "⇡${count}"
 behind = "⇣${count}"
 deleted = "x"
 diverged = "⇕⇡${ahead_count}⇣${behind_count}"
-style = "white"
+style = "pink"
 
 # Last param in the first line/row
 [cmd_duration]
@@ -41,39 +44,18 @@ min_time = 1
 
 
 ## SECOND LINE/ROW: Prompt
-# Somethere at the beginning
-[battery]
-charging_symbol = ""
-disabled = true
-discharging_symbol = ""
-full_symbol = ""
-
-[[battery.display]]  # "bold red" style when capacity is between 0% and 15%
-disabled = false
-style = "bold red"
-threshold = 15
-
-[[battery.display]]  # "bold yellow" style when capacity is between 15% and 50%
-disabled = true
-style = "bold yellow"
-threshold = 50
-
-[[battery.display]]  # "bold green" style when capacity is between 50% and 80%
-disabled = true
-style = "bold green"
-threshold = 80
 
 # Prompt: optional param 1
 [time]
 disabled = true
 format = " 🕙 $time($style)\n"
-style = "bright-white"
+style = "lavender"
 time_format = "%T"
 
 # Prompt: param 2
 [character]
-error_symbol = " [×](bold red)"
-success_symbol = " [╰─λ](bold red)"
+error_symbol = " [×](red)"
+success_symbol = " [╰─λ](sky)"
 
 # SYMBOLS
 [status]
@@ -145,3 +127,33 @@ symbol = " "
 
 [swift]
 symbol = "ﯣ "
+
+# Palettes
+
+[palettes.catppuccin_macchiato]
+rosewater = "#f4dbd6"
+flamingo = "#f0c6c6"
+pink = "#f5bde6"
+mauve = "#c6a0f6"
+red = "#ed8796"
+maroon = "#ee99a0"
+peach = "#f5a97f"
+yellow = "#eed49f"
+green = "#a6da95"
+teal = "#8bd5ca"
+sky = "#91d7e3"
+sapphire = "#7dc4e4"
+blue = "#8aadf4"
+lavender = "#b7bdf8"
+text = "#cad3f5"
+subtext1 = "#b8c0e0"
+subtext0 = "#a5adcb"
+overlay2 = "#939ab7"
+overlay1 = "#8087a2"
+overlay0 = "#6e738d"
+surface2 = "#5b6078"
+surface1 = "#494d64"
+surface0 = "#363a4f"
+base = "#24273a"
+mantle = "#1e2030"
+crust = "#181926"

@@ -41,7 +41,7 @@ style = "pink"
 disabled = false
 format = "took [$duration]($style)"
 min_time = 1
-
+style = "teal"
 
 ## SECOND LINE/ROW: Prompt
 

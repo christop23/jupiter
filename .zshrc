@@ -18,7 +18,7 @@ _comp_options+=(globdots)
 
 ## Same command but with extra features
 alias ls='exa --git --icons'
-alias cat='bat --theme=gruvbox-dark'
+alias cat='bat --theme=Dracula'
 
 ## Shorthands
 alias nv='nvim'

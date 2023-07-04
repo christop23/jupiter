@@ -6,6 +6,7 @@
 # Autostart
 exec mako
 exec --no-startup-id /usr/lib/polkit-gnome/polkit-gnome-authentication-agent-1
+exec_always autotiling
 
 # Style
 font pango:Fira Code Nerd Font 12

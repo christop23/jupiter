@@ -65,6 +65,5 @@ python-i3ipc
 
 # AUR packages are listed below
 
-autotiling
 paru-bin
 nwg-look-bin (mentioned in theming)

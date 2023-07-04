@@ -42,7 +42,7 @@ set $term alacritty
 set $menu bemenu-run --bottom --fn 'Fira Code Nerd Font 14' | xargs swaymsg exec --
 
 # Default wallpaper
-output * bg  /usr/share/backgrounds/sway/Sway_Wallpaper_Blue_1366x768.png fill
+output * bg  ~/.config/sway/wallpaper.png fill
 
 # Idle configuration
 

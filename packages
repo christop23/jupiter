@@ -1,4 +1,4 @@
-## Before running ohmyzsh installation setup, make sure zsh, polkit and git packages are installed
+## Before running ohmyzsh installation script, make sure zsh, polkit and git packages are installed
 
 ## Packages to remove
 
@@ -12,7 +12,6 @@ vim
 
 alacritty
 android-tools
-autotiling
 bat
 bemenu
 exa
@@ -34,11 +33,6 @@ noto-fonts
 noto-fonts-emoji
 pacman-contrib
 polkit-gnome
-paru-bin
-
-# dependency for autotiling script
-python-i3ipc
-
 reflector
 skim
 starship
@@ -48,18 +42,27 @@ ttf-firacode-nerd
 ttf-font-awesome
 ttf-iosevka-nerd
 ttf-jetbrains-mono-nerd
-
-# pick the wlr variant for xdg-desktop-portal
-xdg-desktop-portal
-
 xdg-user-dirs
 zathura
 zsh
 zsh-autosuggestions
 zsh-syntax-highlighting
 
+# pick the wlr variant for xdg-desktop-portal
+
+xdg-desktop-portal
+
 # additionally install the following for theming
 
 nwg-look
 kvantum
 qt5ct or qt6ct
+
+# following package is a dependency for the autotiling script
+
+python-i3ipc
+
+# AUR packages are listed below
+
+autotiling
+paru-bin

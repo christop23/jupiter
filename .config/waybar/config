@@ -43,7 +43,6 @@
     "tooltip": false,
   },
   "clock": {
-    "on-click": "~/.config/waybar/wallpaper_random.sh &",
     "interval": 1,
     "format": "{:%I:%M %p  %A %b %d}",
     "tooltip": true,

@@ -54,7 +54,7 @@ xdg-desktop-portal
 
 # additionally install the following for theming
 
-nwg-look
+nwg-look-bin
 kvantum
 qt5ct or qt6ct
 
@@ -66,3 +66,4 @@ python-i3ipc
 
 autotiling
 paru-bin
+nwg-look-bin (mentioned in theming)

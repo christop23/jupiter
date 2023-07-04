@@ -32,6 +32,11 @@
 ##
 Jupiter is a collection of config files for a customised wayland setup using sway on Arch Linux
 
+# Preview
+
+##
+<img src="https://raw.githubusercontent.com/christop23/jupiter/main/preview.png"/>
+
 # Installation
 
 ##

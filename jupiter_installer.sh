@@ -55,6 +55,7 @@ sudo systemctl enable --now firewalld.service
 echo "Step 13: Executing script to install Oh My Zsh"
 set -x
 sh -c "$(curl -fsSL https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh)"
+set +x
 
 # Step 13.5: Update xdg user directories
 echo "Step 13.5: Updating xdg user directories"

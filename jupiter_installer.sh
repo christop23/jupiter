@@ -67,9 +67,27 @@ sudo systemctl enable --now paccache.timer
 
 # Step 14.5: Modify configuration files
 echo "Step 14.5: Modifying configuration files"
-rm ~/.zshrc
-rm ~/.zprofile
-rm ~/.zshenv
+
+if [ -f ~/.zshrc ]; then
+    rm ~/.zshrc
+    echo "Deleted zshrc"
+fi
+
+if [ -f ~/.zprofile ]; then
+    rm ~/.zprofile
+    echo "Deleted zprofile"
+fi
+
+if [ -f ~/.zshenv ]; then
+    rm ~/.zshenv
+    echo "Deleted zshenv"
+fi
+
+if [ -d ~/.config ]; then
+    rm -rf ~/.config
+    echo "Deleted config folder"
+fi
+
 mv ~/jupiter_installer/jupiter/.zshrc ~/
 mv ~/jupiter_installer/jupiter/.zshenv ~/
 mv ~/jupiter_installer/jupiter/.zprofile ~/

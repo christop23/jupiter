@@ -40,6 +40,10 @@ Jupiter is a collection of config files for a customised wayland setup using swa
 # Installation
 
 ##
-
 Simply download the <a href="https://github.com/christop23/jupiter/blob/main/jupiter_installer.sh">installation script</a> from this repository and run it on your system
+
+# Notes
+
+##
+The installation of <a href="https://ohmyz.sh">Oh My Zsh</a> uses the script described in their official website without any further modification. For the parent script to continue executing, you will need to manually exit the <a href="https://ohmyz.sh">Oh My Zsh</a> script by simply typing `exit`.  I highly recommend setting up `reflector.timer` after the installation to assure ideal download speeds. The package will already be installed if you used the installation script. But, you will still need to configure and setup the systemd timer according to your preferences.
 </div>

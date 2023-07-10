@@ -1,7 +1,7 @@
 {
   "modules-left": [
     "sway/workspaces",
-    "temperature",
+    "disk",
     "idle_inhibitor",
     "mpd",
   ],
@@ -81,11 +81,14 @@
     "format-disconnected": "  Disconnected",
     "tooltip": false
   },
-  "temperature": {
-    "critical-threshold": 80,
+  "disk": {
     "tooltip": false,
-    "format": " {temperatureC}°C",
-    "interval": 30
+    "path": "/",
+    "interval": 60,
+    "format": " {percentage_used}%",
+    "states": {
+    "critical": 90,
+    },
   },
   "custom/offswitch": {
     "format": " ",

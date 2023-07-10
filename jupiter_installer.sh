@@ -69,7 +69,6 @@ echo "Step 14.5: Modifying configuration files"
 rm ~/.zshrc
 rm ~/.zprofile
 rm ~/.zshenv
-mv ~/jupiter_installer/jupiter/.Xresources ~/
 mv ~/jupiter_installer/jupiter/.zshrc ~/
 mv ~/jupiter_installer/jupiter/.zshenv ~/
 mv ~/jupiter_installer/jupiter/.zprofile ~/

@@ -85,7 +85,7 @@
     "tooltip": false,
     "path": "/",
     "interval": 60,
-    "format": " {percentage_used}%",
+    "format": "  {percentage_used}%",
     "states": {
     "critical": 90,
     },

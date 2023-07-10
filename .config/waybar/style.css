@@ -55,7 +55,7 @@ tooltip {
 tooltip label {
   color: rgb(217, 224, 238);
 }
-#clock, #memory, #temperature, #cpu, #mpd, #idle_inhibitor, #pulseaudio, #network, #custom-offswitch {
+#clock, #memory, #disk, #cpu, #mpd, #idle_inhibitor, #pulseaudio, #network, #custom-offswitch {
   padding-left: 10px;
   padding-right: 10px;
 }
@@ -71,7 +71,7 @@ tooltip label {
 #idle_inhibitor {
   color: rgb(221, 182, 242);
 }
-#temperature {
+#disk {
   color: rgb(150, 205, 251);
 }
 #pulseaudio {

@@ -41,7 +41,7 @@ cd ~
 
 # Step 10: Install packages
 echo "Step 10: Installing packages"
-paru -S alacritty android-tools bat bemenu exa fd firefox firewalld gvfs-mtp imv libnotify mako mpc mpd mpv ncmpcpp nemo nemo-fileroller neofetch neovim noto-fonts noto-fonts-emoji pacman-contrib polkit-gnome qt5-wayland reflector skim starship swaybg telegram-desktop ttf-firacode-nerd ttf-font-awesome ttf-iosevka-nerd ttf-jetbrains-mono-nerd xdg-user-dirs zathura zsh zsh-autosuggestions zsh-syntax-highlighting xdg-desktop-portal kvantum qt5ct python-i3ipc
+paru -S alacritty android-tools bat bemenu exa fd firefox firewalld gnome-themes-extra gvfs-mtp imv libnotify mako mpc mpd mpv ncmpcpp nemo nemo-fileroller neofetch neovim noto-fonts noto-fonts-emoji pacman-contrib polkit-gnome qt5-wayland reflector skim starship swaybg telegram-desktop ttf-firacode-nerd ttf-font-awesome ttf-iosevka-nerd ttf-jetbrains-mono-nerd xdg-user-dirs zathura zsh zsh-autosuggestions zsh-syntax-highlighting xdg-desktop-portal kvantum qt5ct python-i3ipc
 
 # Step 11: Install package nwg-look-bin
 echo "Step 11: Installing package nwg-look-bin"

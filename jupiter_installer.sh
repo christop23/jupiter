@@ -50,7 +50,7 @@ cd ~
 
 # Step 10: Install packages
 echo -e "${GREEN}Step 10: Installing packages${DEFAULT}"
-paru -S alacritty android-tools bat bemenu exa fd firefox firewalld gnome-themes-extra gvfs-mtp imv libnotify mako mpc mpd mpv ncmpcpp nemo nemo-fileroller neofetch neovim noto-fonts noto-fonts-emoji pacman-contrib polkit-gnome qt5-wayland reflector skim starship swaybg telegram-desktop ttf-firacode-nerd ttf-font-awesome ttf-iosevka-nerd ttf-jetbrains-mono-nerd xdg-user-dirs zathura zsh zsh-autosuggestions zsh-syntax-highlighting xdg-desktop-portal kvantum qt5ct python-i3ipc"
+paru -S alacritty android-tools bat bemenu exa fd firefox firewalld gnome-themes-extra gvfs-mtp imv libnotify mako mpc mpd mpv ncmpcpp nemo nemo-fileroller neofetch neovim noto-fonts noto-fonts-emoji pacman-contrib polkit-gnome qt5-wayland reflector skim starship swaybg telegram-desktop ttf-firacode-nerd ttf-font-awesome ttf-iosevka-nerd ttf-jetbrains-mono-nerd xdg-user-dirs zathura zsh zsh-autosuggestions zsh-syntax-highlighting xdg-desktop-portal kvantum qt5ct python-i3ipc
 
 # Step 11: Install package nwg-look-bin
 echo -e "${GREEN}Step 11: Installing package nwg-look-bin${DEFAULT}"
@@ -62,9 +62,7 @@ sudo systemctl enable --now firewalld.service
 
 # Step 13: Execute script to install Oh My Zsh
 echo -e "${GREEN}Step 13: Executing script to install Oh My Zsh${DEFAULT}"
-set -x
 sh -c "$(curl -fsSL https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh)"
-set +x
 
 # Step 13.5: Update xdg user directories
 echo -e "${GREEN}Step 13.5: Updating xdg user directories${DEFAULT}"
@@ -104,6 +102,6 @@ mv ~/jupiter_installer/jupiter/.zprofile ~/
 mv ~/jupiter_installer/jupiter/.config/* ~/.config/
 mkdir ~/.config/mpd/playlists
 
-# Step 15: Enable mpd.service
-echo -e "${GREEN}Step 15: Enabling mpd.service${DEFAULT}"
+# Step 15: Enable MPD
+echo -e "${GREEN}Step 15: Enabling MPD${DEFAULT}"
 systemctl --user enable mpd.service

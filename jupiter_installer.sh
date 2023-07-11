@@ -85,7 +85,8 @@ fi
 
 if [ -d ~/.config ]; then
     rm -rf ~/.config
-    echo "Deleted config folder"
+    mkdir ~/.config
+    echo "Cleared config folder"
 fi
 
 mv ~/jupiter_installer/jupiter/.zshrc ~/

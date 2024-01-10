@@ -42,7 +42,7 @@ alias sv='python -m http.server 3000'
 eval "$(starship init zsh)"
 
 ## Display neofetch
-neofetch
+#neofetch
 
 ## Syntax highlighting and suggestion
 source /usr/share/zsh/plugins/zsh-autosuggestions/zsh-autosuggestions.zsh

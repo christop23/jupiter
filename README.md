@@ -40,7 +40,7 @@ Jupiter is a collection of config files for a customised wayland setup using swa
 # Installation
 
 ##
-Simply download the <a href="https://github.com/christop23/jupiter/blob/main/jupiter_installer.sh">installation script</a> from this repository and run it on your system
+Simply download the <a href="https://github.com/christop23/jupiter/blob/main/jupiter.sh">installation script</a> from this repository and run it on your system
 
 # Notes
 

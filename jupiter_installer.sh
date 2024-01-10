@@ -85,11 +85,6 @@ if [ -f ~/.zprofile ]; then
     echo -e "${YELLOW}Deleted zprofile${DEFAULT}"
 fi
 
-if [ -f ~/.zshenv ]; then
-    rm ~/.zshenv
-    echo -e "${YELLOW}Deleted zshenv${DEFAULT}"
-fi
-
 if [ -d ~/.config ]; then
     rm -rf ~/.config
     mkdir ~/.config
@@ -97,7 +92,6 @@ if [ -d ~/.config ]; then
 fi
 
 mv ~/jupiter_installer/jupiter/.zshrc ~/
-mv ~/jupiter_installer/jupiter/.zshenv ~/
 mv ~/jupiter_installer/jupiter/.zprofile ~/
 mv ~/jupiter_installer/jupiter/.config/* ~/.config/
 mkdir ~/.config/mpd/playlists

@@ -1,11 +1,3 @@
-## Before running ohmyzsh installation script, make sure zsh, polkit and git packages are installed
-
-## Packages to remove
-
-foot
-dmenu
-vim
-
 ## MAKE SURE TO RUN "paru -c" AFTER REMOVING PACKAGES TO CLEAN UP LEFTOVER DEPENDENCIES
 
 ## Packages to install
@@ -26,24 +18,28 @@ mako
 mpc
 mpd
 mpv
+nano
 ncmpcpp
 nemo
 nemo-fileroller
 neofetch
-neovim
 noto-fonts
 noto-fonts-emoji
 pacman-contrib
+pavucontrol
 polkit-gnome
 reflector
 skim
 starship
+sway
 swaybg
+swayidle
 telegram-desktop
 ttf-firacode-nerd
 ttf-font-awesome
 ttf-iosevka-nerd
 ttf-jetbrains-mono-nerd
+waybar
 xdg-user-dirs
 zathura
 zsh

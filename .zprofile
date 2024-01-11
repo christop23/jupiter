@@ -10,9 +10,9 @@ export GTK_USE_PORTAL=0
 
 # Default Apps
 
-export EDITOR="nano"
+export EDITOR="nvim"
 export READER="zathura"
-export VISUAL="nano"
+export VISUAL="nvim"
 export TERMINAL="alacritty"
 export BROWSER="firefox"
 export VIDEO="mpv"

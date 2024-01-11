@@ -34,6 +34,7 @@ pacman-contrib
 pavucontrol
 polkit-gnome
 reflector
+ripgrep
 skim
 slurp
 starship

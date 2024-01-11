@@ -15,6 +15,7 @@ grim
 gvfs-mtp
 imv
 jq
+lazygit
 less
 libnotify
 mako
@@ -28,6 +29,7 @@ nemo-fileroller
 neofetch
 noto-fonts
 noto-fonts-emoji
+npm
 pacman-contrib
 pavucontrol
 polkit-gnome
@@ -38,6 +40,7 @@ starship
 sway
 swaybg
 swayidle
+swaylock
 telegram-desktop
 ttf-firacode-nerd
 ttf-font-awesome

@@ -36,10 +36,6 @@ cd paru-bin
 echo -e "${GREEN}Step 6: Building and installing paru${DEFAULT}"
 makepkg -si
 
-# Step 7: Remove packages dmenu, foot, and vim
-echo -e "${GREEN}Step 7: Removing packages dmenu, foot, and vim${DEFAULT}"
-paru -R dmenu foot vim
-
 # Step 8: Clean package cache
 echo -e "${GREEN}Step 8: Cleaning package cache${DEFAULT}"
 paru -c

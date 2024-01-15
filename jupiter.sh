@@ -87,11 +87,54 @@ if [ -d ~/.config ]; then
     echo -e "${YELLOW}Cleared config folder${DEFAULT}"
 fi
 
+echo -e "${YELLOW}Moving files...${DEFAULT}"
 mv ~/jupiter_installer/jupiter/.zshrc ~/
 mv ~/jupiter_installer/jupiter/.zprofile ~/
 mv ~/jupiter_installer/jupiter/.config/* ~/.config/
 mkdir ~/.config/mpd/playlists
 
+# Enable Firefox Sync for Librewolf
+if [ -d ~/.librewolf ]; then
+    mv ~/jupiter_installer/jupiter/librewolf.overrides.cfg ~/.librewolf/
+    echo -e "${YELLOW}Librewolf should now support Firefox Sync${DEFAULT}"
+else
+    mkdir ~/.librewolf
+    mv ~/jupiter_installer/jupiter/librewolf.overrides.cfg ~/.librewolf/
+    echo -e "${YELLOW}Librewolf should now support Firefox Sync${DEFAULT}"
+fi
+
 # Step 15: Enable MPD
 echo -e "${GREEN}Step 15: Enabling MPD${DEFAULT}"
 systemctl --user enable mpd.service
+
+# Step 16: Some Pacman Tweaks
+echo -e "${GREEN}Step 16: Some Tweaks for Pacman${DEFAULT}"
+if [ -f /etc/pacman.conf ]; then
+    sudo sed -i "/^#Color/c\Color\nILoveCandy
+    /^#VerbosePkgLists/c\VerbosePkgLists
+    /^#ParallelDownloads/c\ParallelDownloads = 5" /etc/pacman.conf
+fi
+
+# Step 17: Chaotic AUR
+echo -e "${GREEN}Step 17: Chaotic AUR:${DEFAULT}"
+echo -e "${GREEN}1. Enable it${DEFAULT}"
+echo -e "${RED}2. Skip${DEFAULT}"
+
+read -p "Enter your choice (1 or 2): " choice
+
+if [[ $choice -eq 1 ]]; then
+    sudo pacman-key --recv-key 3056513887B78AEB --keyserver keyserver.ubuntu.com
+    sudo pacman-key --lsign-key 3056513887B78AEB
+    sudo pacman -U 'https://cdn-mirror.chaotic.cx/chaotic-aur/chaotic-keyring.pkg.tar.zst'
+    sudo pacman -U 'https://cdn-mirror.chaotic.cx/chaotic-aur/chaotic-mirrorlist.pkg.tar.zst'
+    sudo sed -i '$ a\[chaotic-aur]\nInclude = /etc/pacman.d/chaotic-mirrorlist' /etc/pacman.conf
+    sudo pacman -Syu
+    echo -e "${GREEN}Chaotic AUR was setup successfully${DEFAULT}"
+    
+elif [[ $choice -eq 2 ]]; then
+    echo -e "${MAGENTA}Skipped. Go build packages on your own${DEFAULT}"
+else
+    echo "Invalid choice."
+fi
+
+echo -e "${MAGENTA}Jupiter has finished setting things up. You may reboot your system now${DEFAULT}"

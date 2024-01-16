@@ -61,7 +61,7 @@ xdg-desktop-portal
 
 # additionally install the following for theming
 
-nwg-look-bin
+nwg-look
 kvantum
 qt5ct or qt6ct
 
@@ -72,4 +72,4 @@ python-i3ipc
 # AUR packages are listed below
 
 paru-bin
-nwg-look-bin (mentioned in theming)
+nwg-look (mentioned in theming)

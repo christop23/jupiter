@@ -32,7 +32,7 @@ noto-fonts-emoji
 npm
 pacman-contrib
 pavucontrol
-polkit-gnome
+polkit-kde-agent
 reflector
 ripgrep
 skim

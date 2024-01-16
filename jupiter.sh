@@ -137,4 +137,22 @@ else
     echo "Invalid choice."
 fi
 
+# Step 18: Reflector
+echo -e "${GREEN}Reflector is installed on this system and you can manually configure it whenever you want. However, this script provides a pre-configured setup for India region. Do you want to apply it?${DEFAULT}"
+echo -e "${GREEN}1. Yes${DEFAULT}"
+echo -e "${RED}2. No${DEFAULT}"
+
+read -p "Enter your choice (1 or 2): " choice
+
+if [[ $choice -eq 1 ]]; then
+    sudo sed -i "/^# --country/c\--country India" /etc/xdg/reflector/reflector.conf
+    sudo systemctl enable --now reflector.timer
+    sudo pacman -Syu
+    echo -e "${GREEN}Reflector was setup successfully${DEFAULT}"
+    
+elif [[ $choice -eq 2 ]]; then
+    echo -e "${MAGENTA}Skipped. You will need to configure reflector manually${DEFAULT}"
+else
+    echo "Invalid choice."
+fi
 echo -e "${MAGENTA}Jupiter has finished setting things up. You may reboot your system now${DEFAULT}"

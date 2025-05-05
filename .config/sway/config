@@ -6,6 +6,8 @@
 # Autostart
 exec mako
 exec --no-startup-id /usr/lib/polkit-kde-authentication-agent-1
+
+# Tiling
 exec_always autotiling
 
 # Style
@@ -72,10 +74,6 @@ output * bg  ~/.config/sway/wallpaper.png fill
 # This will lock your screen after 300 seconds of inactivity, then turn off
 # your displays after another 300 seconds, and turn your screens back on when
 # resumed. It will also lock your screen before your computer goes to sleep.
-
-# Autotiling:
-#
-exec_always autotiling
 
 ### Key bindings
 #

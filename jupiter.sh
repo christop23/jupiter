@@ -68,7 +68,7 @@ fi
 
 # Step 10: Install packages
 echo -e "${YELLOW}Step 10: Installing packages${DEFAULT}"
-paru -S lazygit npm ripgrep alacritty android-tools bat bemenu exa fd librewolf swaylock firewalld gnome-themes-extra grim gvfs-mtp imv jq less libnotify mako mpc mpd mpv ncmpcpp nemo nemo-fileroller neofetch neovim noto-fonts noto-fonts-emoji pacman-contrib pavucontrol polkit-kde-agent qt5-wayland reflector skim slurp starship sway swaybg swayidle telegram-desktop ttf-firacode-nerd ttf-font-awesome ttf-iosevka-nerd ttf-jetbrains-mono-nerd waybar xdg-user-dirs zsh zsh-autosuggestions zsh-syntax-highlighting xdg-desktop-portal wl-clipboard kvantum qt5ct python-i3ipc
+paru -S lazygit npm ripgrep alacritty android-tools bat bemenu exa fd librewolf swaylock firewalld gnome-themes-extra grim gvfs-mtp imv jq less libnotify mako mpc mpd mpv ncmpcpp nemo nemo-fileroller neofetch neovim noto-fonts noto-fonts-emoji pacman-contrib pavucontrol polkit-kde-agent qt5-wayland reflector skim slurp starship sway swaybg swayidle telegram-desktop ttf-firacode-nerd ttf-font-awesome ttf-iosevka-nerd ttf-jetbrains-mono-nerd waybar xdg-user-dirs zsh zsh-autosuggestions zsh-syntax-highlighting xdg-desktop-portal wl-clipboard kvantum qt5ct autotiling
 
 # Step 11: Install package nwg-look
 echo -e "${YELLOW}Step 11: Installing package nwg-look${DEFAULT}"

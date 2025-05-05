@@ -75,10 +75,10 @@
   },
   "network": {
     "interval": 1,
-    "format-wifi": "  {ipaddr}",
-    "format-ethernet": "  {ipaddr}",
-    "format-linked": " {ipaddr}",
-    "format-disconnected": "  Disconnected",
+    "format-wifi": " ",
+    "format-ethernet": " ",
+    "format-linked": " ",
+    "format-disconnected": " ",
     "tooltip": false
   },
   "disk": {

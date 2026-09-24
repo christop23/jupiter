@@ -124,7 +124,6 @@
   "interval": 5,
   "tooltip-format": "{essid}\t{gwaddr}",
   "on-click": "rfkill toggle wifi",
-  "on-click-right": "nm-connection-editor",
   "tooltip": true,
   "max-length": 20
 },
@@ -139,8 +138,7 @@
   "tooltip-format": "{device_enumerate}",
   "tooltip-format-enumerate-connected": "{device_address}",
   "tooltip-format-enumerate-connected-battery": "{device_address} | Battery: {device_battery_percentage}%",
-  "on-click": "rfkill toggle bluetooth",
-  "on-click-right": "blueman-manager"
+  "on-click": "rfkill toggle bluetooth"
 },
 "pulseaudio#microphone": {
   "format": "{format_source}",

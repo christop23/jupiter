@@ -608,32 +608,6 @@ install_pacman_packages() {
   fi
 }
 
-cargo_fix() {
-  info "Checking Rust toolchain configuration..."
-
-  # Check if rustup is installed
-  if ! command -v rustup &> /dev/null; then
-    info "rustup not found, installing..."
-    if sudo pacman -S --needed --noconfirm rustup >> "${LOG_FILE}" 2>&1; then
-      msg "rustup installed successfully."
-    else
-      warn "Failed to install rustup. Some AUR packages may fail to build."
-      return 1
-    fi
-  fi
-
-  # Set default toolchain to stable
-  info "Setting Rust default toolchain to stable..."
-  if rustup default stable >> "${LOG_FILE}" 2>&1; then
-    msg "Rust toolchain configured: stable (default)"
-  else
-    warn "Failed to set default Rust toolchain. Some AUR packages may fail to build."
-    return 1
-  fi
-
-  return 0
-}
-
 install_aur_packages() {
   info "Installing AUR packages using ${AUR_HELPER}..."
   info "This may take several minutes..."
@@ -1398,10 +1372,6 @@ main() {
   step "AUR Helper Selection and Installation"
   choose_aur_helper
   add_summary "AUR helper configured: ${AUR_HELPER}"
-
-  step "Configuring Rust Toolchain"
-  cargo_fix || warn "Proceeding without Rust toolchain - some AUR builds may fail"
-  add_summary "Rust toolchain configured"
 
   step "Installing Official Repository Packages"
   install_pacman_packages

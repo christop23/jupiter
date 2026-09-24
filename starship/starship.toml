@@ -10,7 +10,6 @@ $git_status\
 $package\
 $python\
 $nodejs\
-$rust\
 $golang\
 $docker_context\
 $line_break\
@@ -161,9 +160,6 @@ symbol = " "
 
 [ruby]
 symbol = " "
-
-[rust]
-symbol = "󱘗 "
 
 [scala]
 symbol = " "

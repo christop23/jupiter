@@ -63,7 +63,6 @@ binds {
     MOD+A                               hotkey-overlay-title="Open App Launcher: vicinae" { spawn-sh "vicinae toggle"; }
     MOD+B                               hotkey-overlay-title="Open Browser: firefox" { spawn-sh "firefox-developer-edition"; }
     MOD+E                               hotkey-overlay-title="File Manager: Thunar" { spawn-sh "thunar"; }
-    MOD+ALT+E                           hotkey-overlay-title="File Manager: Yazi" { spawn-sh "yazi"; }
     MOD+W                               hotkey-overlay-title="Open Wallpaper Selector" { spawn-sh "$HOME/.config/scripts/bgselector.sh"; }
 
     // Media Keys

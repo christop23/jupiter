@@ -16,8 +16,6 @@
     "network",
     "bluetooth",
     "pulseaudio#microphone",
-    "group/audio",
-    "group/brightness",
-    "battery"
+    "group/audio"
   ]
 }

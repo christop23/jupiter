@@ -69,11 +69,6 @@
       "key": "Disk  ",
       "keyColor": "37"
     },
-    {
-      "type": "battery",
-      "key": "Bat   ",
-      "keyColor": "37"
-    },
     "break",
     "colors"
   ]

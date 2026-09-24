@@ -884,193 +884,65 @@ verify_all_binaries() {
 # ==========================
 
 configure_shells() {
-  info "Shell configuration setup..."
-  printf "\n"
-  printf "${BLUE}${BOLD}Which shell configuration(s) would you like to set up?${NC}\n"
-  printf "\n"
-  printf "${CYAN}This will install and configure the selected shell(s) with the dotfiles.${NC}\n"
-  printf "\n"
-  printf "  1) Fish only      - Modern, user-friendly shell with auto-suggestions\n"
-  printf "  2) Zsh only       - Powerful, highly customizable shell\n"
-  printf "  3) Both Fish & Zsh - Set up both shell configurations\n"
-  printf "  4) Neither        - Skip shell configuration (keep current setup)\n"
-  printf "\n"
+  info "Configuring fish shell (default and only shell)..."
+  CONFIGURE_FISH=true
 
-  local reply
-  read -r -p "Enter your choice (1-4) [default: 3]: " reply < /dev/tty
-  printf "\n"
-
-  case "${reply}" in
-    1)
-      CONFIGURE_FISH=true
-      CONFIGURE_ZSH=false
-      msg "Selected: Fish shell configuration"
-      ;;
-    2)
-      CONFIGURE_FISH=false
-      CONFIGURE_ZSH=true
-      msg "Selected: Zsh shell configuration"
-      ;;
-    4)
-      CONFIGURE_FISH=false
-      CONFIGURE_ZSH=false
-      msg "Selected: No shell configuration"
-      info "Skipping shell setup. You can configure shells manually later."
-      return 0
-      ;;
-    *)
-      CONFIGURE_FISH=true
-      CONFIGURE_ZSH=true
-      msg "Selected: Both Fish and Zsh configurations"
-      ;;
-  esac
-
-  local shells_to_install=()
-
-  if [[ "${CONFIGURE_FISH}" == "true" ]] && ! verify_binary fish; then
-    shells_to_install+=("fish")
-  fi
-
-  if [[ "${CONFIGURE_ZSH}" == "true" ]] && ! verify_binary zsh; then
-    shells_to_install+=("zsh")
-  fi
-
-  if [[ ${#shells_to_install[@]} -gt 0 ]]; then
-    info "Installing selected shell(s): ${shells_to_install[*]}"
-    if sudo pacman -S --needed --noconfirm "${shells_to_install[@]}" >> "${LOG_FILE}" 2>&1; then
-      msg "Shell(s) installed successfully."
+  if ! verify_binary fish; then
+    info "Installing fish..."
+    if sudo pacman -S --needed --noconfirm fish >> "${LOG_FILE}" 2>&1; then
+      msg "fish installed successfully."
     else
-      warn "Failed to install some shells. They may already be installed."
+      warn "Failed to install fish. It may already be installed."
     fi
   else
-    info "Selected shell(s) already installed."
+    info "fish already installed."
   fi
 
-  local configured_shells=()
-  [[ "${CONFIGURE_FISH}" == "true" ]] && configured_shells+=("Fish")
-  [[ "${CONFIGURE_ZSH}" == "true" ]] && configured_shells+=("Zsh")
-
-  if [[ ${#configured_shells[@]} -gt 0 ]]; then
-    msg "Shell configuration(s) ready: ${configured_shells[*]}"
-  fi
-
-  if [[ "${CONFIGURE_ZSH}" == "true" ]]; then
-    info "Configuring Zsh..."
-    local zshrc="${HOME}/.zshrc"
-
-    # Backup existing .zshrc if it exists and is not a symlink to our config
-    if [[ -f "${zshrc}" ]] && ! grep -q "source.*config.zsh" "${zshrc}"; then
-      mv "${zshrc}" "${zshrc}.backup.$(date +%s)"
-      info "Backed up existing .zshrc"
-    fi
-
-    # Create .zshrc with just the source command and skip wizard magic
-    cat > "${zshrc}" << EOF
-# Source sevens-dots configuration
-source \${HOME}/.config/zsh/config.zsh
-
-# Prevent zsh-newuser-install wizard
-zstyle :compinstall filename '${HOME}/.zshrc'
-EOF
-    msg "Configured .zshrc to source config.zsh"
-  fi
+  msg "Fish shell configuration ready."
 }
 
 set_default_shell() {
-  if [[ "${CONFIGURE_FISH}" == "false" ]] && [[ "${CONFIGURE_ZSH}" == "false" ]]; then
-    info "No shell configurations were set up. Skipping default shell selection."
-    return 0
-  fi
-
-  info "Checking default shell..."
+  info "Setting fish as default shell..."
   local current_shell
   current_shell="$(getent passwd "${USER}" | cut -d: -f7)"
-  local current_shell_name
-  current_shell_name="$(basename "${current_shell}")"
 
-  printf "\n"
-  printf "${BLUE}Your current shell is:${NC} %s (%s)\n" "${current_shell_name}" "${current_shell}"
-  printf "\n"
-  printf "${YELLOW}Would you like to change your default shell?${NC}\n"
+  local fish_bin
+  fish_bin="$(command -v fish)"
 
-  local option_num=1
-  declare -A shell_options
+  if [[ -z "${fish_bin}" ]]; then
+    warn "fish is not installed. Installing it now..."
 
-  printf "  %d) Keep current shell (%s)\n" "${option_num}" "${current_shell_name}"
-  ((option_num++)) || true
-
-  if [[ "${CONFIGURE_ZSH}" == "true" ]]; then
-    shell_options[${option_num}]="zsh"
-    printf "  %d) zsh   - Z Shell (powerful, highly customizable)\n" "${option_num}"
-    ((option_num++)) || true
-  fi
-
-  if [[ "${CONFIGURE_FISH}" == "true" ]]; then
-    shell_options[${option_num}]="fish"
-    printf "  %d) fish  - Friendly Interactive Shell (user-friendly, modern)\n" "${option_num}"
-    ((option_num++)) || true
-  fi
-
-  local max_option=$((option_num - 1))
-  printf "\n"
-
-  local reply
-  read -r -p "Enter your choice (1-${max_option}) [default: 1]: " reply < /dev/tty
-  printf "\n"
-
-  if [[ -z "${reply}" ]] || [[ "${reply}" == "1" ]]; then
-    msg "Keeping current shell: ${current_shell_name}"
-    return 0
-  fi
-
-  if [[ ! "${reply}" =~ ^[0-9]+$ ]] || [[ ${reply} -lt 1 ]] || [[ ${reply} -gt ${max_option} ]]; then
-    warn "Invalid selection. Keeping current shell: ${current_shell_name}"
-    return 0
-  fi
-
-  local shell_name="${shell_options[${reply}]}"
-  if [[ -z "${shell_name}" ]]; then
-    msg "Keeping current shell: ${current_shell_name}"
-    return 0
-  fi
-
-  local selected_shell
-  selected_shell="$(command -v "${shell_name}")"
-
-  if [[ -z "${selected_shell}" ]]; then
-    warn "${shell_name} is not installed. Installing it now..."
-
-    if sudo pacman -S --needed --noconfirm "${shell_name}" >> "${LOG_FILE}" 2>&1; then
-      selected_shell="$(command -v "${shell_name}")"
-      if [[ -z "${selected_shell}" ]]; then
-        error "Failed to locate ${shell_name} after installation."
+    if sudo pacman -S --needed --noconfirm fish >> "${LOG_FILE}" 2>&1; then
+      fish_bin="$(command -v fish)"
+      if [[ -z "${fish_bin}" ]]; then
+        error "Failed to locate fish after installation."
         return 1
       fi
-      msg "${shell_name} installed successfully."
+      msg "fish installed successfully."
     else
-      error "Failed to install ${shell_name}."
+      error "Failed to install fish."
       return 1
     fi
   fi
 
-  if [[ "${current_shell}" == "${selected_shell}" ]]; then
-    msg "${shell_name} is already your default shell."
+  if [[ "${current_shell}" == "${fish_bin}" ]]; then
+    msg "fish is already your default shell."
     return 0
   fi
 
-  info "Changing default shell to ${shell_name}..."
+  info "Changing default shell to fish..."
 
-  if ! grep -q "^${selected_shell}\$" /etc/shells 2> /dev/null; then
-    info "Adding ${shell_name} to /etc/shells..."
-    printf "%s\n" "${selected_shell}" | sudo tee -a /etc/shells >> "${LOG_FILE}" 2>&1
+  if ! grep -q "^${fish_bin}\$" /etc/shells 2> /dev/null; then
+    info "Adding fish to /etc/shells..."
+    printf "%s\n" "${fish_bin}" | sudo tee -a /etc/shells >> "${LOG_FILE}" 2>&1
   fi
 
-  if chsh -s "${selected_shell}"; then
-    msg "Default shell changed to ${shell_name} successfully."
+  if chsh -s "${fish_bin}"; then
+    msg "Default shell changed to fish successfully."
     warn "You'll need to log out and back in for this to take effect."
   else
     error "Failed to change default shell."
-    info "You can manually change it later with: chsh -s ${selected_shell}"
+    info "You can manually change it later with: chsh -s ${fish_bin}"
   fi
 }
 
@@ -1381,13 +1253,13 @@ main() {
   verify_all_binaries
   add_summary "All required binaries verified"
 
-  step "Selecting Shell Configurations"
+  step "Configuring Fish Shell"
   configure_shells
-  add_summary "Shell configuration(s) selected and installed"
+  add_summary "Fish shell configured"
 
-  step "Setting Default Shell"
+  step "Setting Fish as Default Shell"
   set_default_shell
-  add_summary "Default shell configured"
+  add_summary "Fish set as default shell"
 
   step "Creating Configuration Backup"
   create_backup

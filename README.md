@@ -35,7 +35,6 @@ _Dynamic theming • Borderless layouts • Minimal_
 - [Keybinds](#keybinds)
   - [System & Shortcuts](#system--shortcuts)
   - [Applications](#applications)
-  - [Media Controls](#media-controls)
   - [Window Management](#window-management)
   - [Workspace Management](#workspace-management)
   - [Monitor Management](#monitor-management)
@@ -48,14 +47,13 @@ _Dynamic theming • Borderless layouts • Minimal_
 - Clean borderless, gapless minimal look
 - Dynamic theme switching system-wide
 - Out-of-Box preconfigured for all popular themes and applications
-- Rust-powered tooling and packages (rust go brrr...)
 
 ## Automatic Installation (Recommended)
 
 For Arch Linux and Arch-based distributions (Manjaro, EndeavourOS, etc.):
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/saatvik333/niri-dotfiles/main/install.sh | sh
+curl -fsSL https://raw.githubusercontent.com/christop23/jupiter/main/install.sh | sh
 ```
 
 **Important Requirements:**
@@ -76,13 +74,12 @@ The automated installer will:
    Update your system packages
    Install base development tools (git, base-devel, curl)
    Set up AUR helper (yay)
-   Configure Rust toolchain
    Install all required packages (niri, waybar, fish, etc.)
-   Install AUR packages (vicinae, wallust, etc.)
+   Install AUR packages (vicinae, etc.)
    Install GTK themes (Colloid, Rose Pine, Osaka)
    Install icon themes (Colloid icons)
    Clone and configure dotfiles
-   Set up shell configuration (Fish/Zsh)
+   Set up shell configuration (Fish)
    Create systemd services
    Install wallpapers
    Backup existing configurations
@@ -96,33 +93,32 @@ Core Components
 
     Window Manager: Niri (Scrollable-tiling Wayland compositor)
     Status Bar: Waybar (Highly customizable)
-    Terminal: Alacritty, Kitty
-    Shell: Fish (with optional Zsh)
+    Terminal: Alacritty
+    Shell: Fish
     Notification Daemon: Mako
-    Application Launcher: Rofi
+    Application Launcher: Vicinae
     Screen Locker: GTKLock
     Wallpaper Manager: awww
 
 Additional Tools
 
     Editor: Neovim (preconfigured)
-    File Manager: Yazi (TUI), Thunar (GUI)
+    File Manager: Thunar
     PDF Viewer: Zathura
     System Info: Fastfetch
-    Theme Manager: Wallust
+    Theme Manager: Matugen
     Prompt: Starship
     Authentication: Polkit-gnome
-    Utilities: dust, eza, niri-switch
+    Utilities: eza
 
 Development Tools
 
-    Rust toolchain (rustup, cargo)
     Base development packages
     Git and build essentials
 
 ## Themes
 
-[Wallust](https://codeberg.org/explosion-mental/wallust) is used for the theming using it's color palettes and it's palette generation using wallpaper.
+[Matugen](https://github.com/InioX/matugen) is used for the theming using it's color palettes and it's palette generation using wallpaper.
 
 | Theme      | GTK Theme                                                                                   | Icon Theme                                                                           |
 | ---------- | ------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------ |
@@ -140,14 +136,12 @@ Thanks to [vinceliuice](https://github.com/vinceliuice) and [Fausto-Korpsvart](h
 ## Preconfigured Tools
 
 - Neovim
-- Yazi
-- Rofi
+- Vicinae
 - Waybar
 - Fish
 - Fastfetch
 - Mako
 - Alacritty
-- Kitty
 - Starship
 
 ## Keybinds
@@ -165,31 +159,11 @@ Thanks to [vinceliuice](https://github.com/vinceliuice) and [Fausto-Korpsvart](h
 | Keybind              | Action                                           |
 | -------------------- | ------------------------------------------------ |
 | `MOD + Return`       | Open terminal (Alacritty)                        |
-| `MOD + Alt + Return` | Open terminal (Kitty)                            |
-| `MOD + B`            | Open primary browser (Firefox Developer Edition) |
-| `MOD + Alt + B`      | Open secondary browser (Google Chrome)           |
+| `MOD + B`            | Open primary browser (LibreWolf)                 |
 | `MOD + A`            | Toggle application launcher (Vicinae)            |
 | `MOD + E`            | Open file manager (Thunar)                       |
-| `MOD + Alt + E`      | Open TUI file manager (Yazi)                     |
 | `MOD + W`            | Open wallpaper selector                          |
 | `MOD + Shift + Q`    | Lock screen (GTKLock)                            |
-
-### Media Controls
-
-| Keybind                 | Action                     |
-| ----------------------- | -------------------------- |
-| `XF86AudioRaiseVolume`  | Increase volume            |
-| `XF86AudioLowerVolume`  | Decrease volume            |
-| `XF86AudioMute`         | Mute/unmute audio          |
-| `XF86AudioMicMute`      | Mute/unmute microphone     |
-| `XF86MonBrightnessUp`   | Increase screen brightness |
-| `XF86MonBrightnessDown` | Decrease screen brightness |
-| `XF86AudioPlay`         | Play/pause media           |
-| `XF86AudioPause`        | Play/pause media           |
-| `XF86AudioNext`         | Next track                 |
-| `XF86AudioPrev`         | Previous track             |
-
-> **Note:** All media keys work even when the screen is locked.
 
 ### Window Management
 
@@ -238,7 +212,6 @@ Thanks to [vinceliuice](https://github.com/vinceliuice) and [Fausto-Korpsvart](h
 | `MOD + 1-9`    | Switch to workspace 1-9       |
 | `MOD + Tab`    | Switch to previous workspace  |
 | `MOD + Escape` | Toggle overview mode          |
-| `Alt + Tab`    | Window switcher (niri-switch) |
 
 #### Move Windows to Workspaces
 
@@ -294,7 +267,6 @@ Thanks to [vinceliuice](https://github.com/vinceliuice) and [Fausto-Korpsvart](h
 | `MOD + S`         | Take screenshot (selection) |
 | `MOD + Shift + S` | Screenshot entire screen    |
 | `MOD + Ctrl + S`  | Screenshot current window   |
-| `MOD + P`         | Color picker (hyprpicker)   |
 | `MOD + Alt + W`   | Restart Waybar              |
 
 ---

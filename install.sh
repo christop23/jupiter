@@ -22,22 +22,21 @@ AUR_HELPER=""
 
 # Progress tracking
 CURRENT_STEP=0
-readonly TOTAL_STEPS=20
+readonly TOTAL_STEPS=19
 
 # Installation summary tracking
 declare -a INSTALL_SUMMARY=()
 
-# Shell configuration choices (will be set interactively)
-CONFIGURE_FISH=false
-CONFIGURE_ZSH=false
+# Shell configuration - fish is the default and only shell
+CONFIGURE_FISH=true
 
 # Process ID for sudo keep-alive
 SUDO_PID=""
 
 # Expected configuration folders in the repo
 readonly CONFIG_FOLDERS=(
-  niri waybar fish zsh fastfetch mako alacritty kitty starship
-  nvim yazi vicinae gtklock zathura wallust rofi scripts
+  niri waybar fish fastfetch mako alacritty starship
+  nvim vicinae gtklock zathura matugen scripts
 )
 
 # Optional dependencies that waybar modules depend on
@@ -47,23 +46,14 @@ readonly OPTIONAL_BLUETOOTH_PACKAGES=("bluez" "bluez-utils")
 # AUR packages to install
 readonly AUR_PACKAGES=(
   vicinae-bin
-  wallust
-  dust
-  eza
-  niri-switch
-  ttf-nerd-fonts-symbols
-  pavucontrol
-  thunar
-  minizip
-  awww-git
 )
 
 # Official repository packages
 readonly PACMAN_PACKAGES=(
-  niri waybar fish fastfetch mako alacritty kitty starship neovim yazi
-  zathura zathura-pdf-mupdf ttf-jetbrains-mono-nerd
-  qt5-wayland qt6-wayland polkit-gnome ffmpeg imagemagick unzip jq
-  gtklock rofi curl libnotify
+  niri waybar fish fastfetch mako alacritty starship neovim eza
+  zathura zathura-pdf-mupdf ttf-jetbrains-mono-nerd ttf-nerd-fonts-symbols
+  qt5-wayland qt6-wayland polkit-gnome unzip jq unrar 7zip man-db bat
+  gtklock curl libnotify pavucontrol thunar awww matugen librewolf bottom
 )
 
 # ==========================
@@ -870,8 +860,8 @@ verify_all_binaries() {
   info "Verifying all required binaries are installed..."
   local missing_binaries=()
   local binaries_to_check=(
-    niri waybar fish fastfetch mako alacritty kitty starship
-    nvim yazi vicinae gtklock zathura wallust awww rofi
+    niri waybar fish fastfetch mako alacritty starship
+    nvim vicinae gtklock zathura matugen awww librewolf btm
   )
 
   for binary in "${binaries_to_check[@]}"; do
@@ -1377,7 +1367,7 @@ main() {
 
   step "Installing AUR Packages"
   install_aur_packages
-  add_summary "AUR packages installed (vicinae, wallust)"
+  add_summary "AUR packages installed (vicinae)"
 
   step "Installing GTK Themes"
   install_gtk_themes

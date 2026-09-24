@@ -1,95 +1,18 @@
-# IDE & Editor Configurations
-Code/
-Cursor/
-.vscode/
-.factory/
-Kiro/
-configstore/
-blender/
-zed/
-acli/
-Antigravity/
-Postman/
+# Editor and OS droppings. The checkout lives at ~/.dotfiles-jupiter and is
+# expected to be edited in place -- install.sh refuses to replace one with
+# local changes -- so a stray swap file here shows up as untracked noise in
+# every `git status` and trips that prompt for a file nobody made.
+*~
+*.bak
+*.orig
+*.rej
+*.swp
+*.swo
+.\#*
+\#*\#
 
-# Development Tools & Languages
-go/
-gopls/
-flutter/
-fontforge/
-nextjs-nodejs/
+# Backup files that install.sh itself writes next to a config it overwrites.
+*.jupiter-backup
 
-# Browsers
-google-chrome/
-.mozilla/
-
-# Communication
-discord/
-vesktop/
-Slack/
-
-# Media & Entertainment
-spotify/
-spotify-player/
-obs-studio/
-LosslessCut/
-inkscape/
-obsidian/
-kew/lastPlaylist.m3u
-kew/kewlibrary
-bongocat/
-
-# System & Utilities
-nwg-look/
-nwg-displays/
-# systemd/
-balenaEtcher/
-yay/
-easyeffects/
-thefuck/
-qBittorrent/
-sherlock/
-eog/
-autostart/
-ranger/
-nautilus/
-bottom/
-celluloid/
-s-tui/
-kew/
-Thunar/
-waytrogen/
-qView/
-libvirt/
-gnome-boxes/
-deluge/
-AirPodsTrayApp/
-rustdesk/
-GIMP/
-
-# Desktop Environment & Frameworks
-kde.org/
-ego/
-cachyos/
-gtk-3.0/
-gtk-4.0/
-qt6ct/
-qt5ct/
-xfce4/
-QtProject.conf
-xsettingsd/
-htop/
-mimeapps.list
-user-dirs.dirs
-user-dirs.locale
-dconf/
-
-# Audio
-pulse/
-
-# Electron Apps
-Electron/
-Notion/
-
-*.env
-*.swp.*
-temp.md
+# Local state a tool may drop inside the tree.
+.env

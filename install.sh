@@ -542,7 +542,7 @@ choose_aur_helper() {
       return 0
     else
       warn "yay is installed but broken (likely due to pacman/libalpm upgrade). Reinstalling..."
-      sudo pacman -Rns --noconfirm yay >> "${LOG_FILE}" 2>&1 || true
+      sudo pacman -Rns --noconfirm yay yay-bin >> "${LOG_FILE}" 2>&1 || true
     fi
   fi
 
@@ -551,39 +551,32 @@ choose_aur_helper() {
 }
 
 install_yay() {
-  info "Installing yay AUR helper..."
+  info "Installing yay-bin AUR helper..."
 
-  info "Attempting to install yay from official repository..."
-  if retry_command 2 sudo pacman -S --noconfirm yay >> "${LOG_FILE}" 2>&1; then
-    msg "yay installed from official repository."
-    return 0
-  fi
-
-  info "yay not in official repos, building from AUR..."
   TEMP_BUILD_DIR="$(mktemp -d)"
 
   if [[ ! -d "${TEMP_BUILD_DIR}" ]]; then
     fatal "Failed to create temporary directory for yay build"
   fi
 
-  info "Cloning yay repository (this may take a moment)..."
+  info "Cloning yay-bin repository (this may take a moment)..."
   if ! retry_command 3 git clone --depth=1 https://aur.archlinux.org/yay-bin.git "${TEMP_BUILD_DIR}" >> "${LOG_FILE}" 2>&1; then
-    fatal "Failed to clone yay repository after multiple attempts."
+    fatal "Failed to clone yay-bin repository after multiple attempts."
   fi
 
-  info "Building yay package (this may take a few minutes)..."
+  info "Building yay-bin package (this may take a few minutes)..."
   if ! (cd "${TEMP_BUILD_DIR}" && makepkg -si --noconfirm >> "${LOG_FILE}" 2>&1); then
-    fatal "Failed to build and install yay."
+    fatal "Failed to build and install yay-bin."
   fi
 
-  info "Cleaning up yay build directory..."
+  info "Cleaning up yay-bin build directory..."
   cleanup_temp_files
   TEMP_BUILD_DIR=""
 
   if verify_binary yay; then
-    msg "yay installed successfully from AUR."
+    msg "yay-bin installed successfully from AUR."
   else
-    fatal "yay installation completed but binary not found."
+    fatal "yay-bin installation completed but binary not found."
   fi
 }
 
@@ -591,7 +584,7 @@ check_yay_linkage() {
   if command -v yay &> /dev/null; then
     if ldd "$(command -v yay)" | grep -q "not found"; then
       warn "Detected broken shared library linkage in yay. Reinstalling."
-      sudo pacman -Rns --noconfirm yay-bin >> "${LOG_FILE}" 2>&1 || true
+      sudo pacman -Rns --noconfirm yay yay-bin >> "${LOG_FILE}" 2>&1 || true
       install_yay
     fi
   fi

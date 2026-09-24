@@ -228,81 +228,6 @@ map_to_icon_theme() {
   esac
 }
 
-map_to_wallust_theme() {
-  local theme_name="$1"
-  local variation="$2"
-
-  case "${theme_name}" in
-    "catppuccin")
-      if [[ "$variation" == "light" ]]; then
-        echo "Catppuccin-Latte"
-      else
-        echo "Catppuccin-Mocha"
-      fi
-      ;;
-    "dracula")
-      if [[ "$variation" == "light" ]]; then
-        echo "base16-default-light"
-      else
-        echo "base16-dracula"
-      fi
-      ;;
-    "everforest")
-      if [[ "$variation" == "light" ]]; then
-        echo "Everforest-Light-Medium"
-      else
-        echo "Everforest-Dark-Medium"
-      fi
-      ;;
-    "gruvbox")
-      if [[ "$variation" == "light" ]]; then
-        echo "Gruvbox"
-      else
-        echo "Gruvbox-Dark"
-      fi
-      ;;
-    "material")
-      if [[ "$variation" == "light" ]]; then
-        echo "base16-default-light"
-      else
-        echo "base16-black-metal-funeral"
-      fi
-      ;;
-    "nord")
-      if [[ "$variation" == "light" ]]; then
-        echo "Nord-Light"
-      else
-        echo "Nord"
-      fi
-      ;;
-    "solarized")
-      if [[ "$variation" == "light" ]]; then
-        echo "Solarized-Light"
-      else
-        echo "Solarized-Dark"
-      fi
-      ;;
-    "rose-pine")
-      if [[ "$variation" == "light" ]]; then
-        echo "Rosé-Pine-Dawn"
-      else
-        echo "Rosé-Pine"
-      fi
-      ;;
-    "tokyo-night")
-      if [[ "$variation" == "light" ]]; then
-        echo "Tokyo-Night-Light"
-      else
-        echo "Tokyo-Night"
-      fi
-      ;;
-    *)
-      log_warn "Unknown theme: $theme_name, using random theme"
-      echo "random"
-      ;;
-  esac
-}
-
 # --- Functions ---
 
 detect_theme_from_wallpaper() {
@@ -585,51 +510,33 @@ set_icon_theme() {
   log_success "Icon theme set to: $icon_theme"
 }
 
-run_wallust_theme() {
-  local -r wallust_theme="$1"
+run_matugen_theme() {
+  local -r mode="$1"
   local -r wallpaper_path="$2"
 
-  log_info "Running wallust with theme: $wallust_theme for wallpaper: $wallpaper_path"
+  log_info "Running matugen (mode: $mode) for wallpaper: $wallpaper_path"
 
-  if [[ "$wallust_theme" == "random" ]]; then
-    # Just run wallust on the wallpaper without a specific theme if unknown
-    log_info "Running wallust in auto mode for: $wallpaper_path"
-    if ! wallust run "$wallpaper_path" --dynamic-threshold 2> /dev/null; then
-      log_warn "Wallust theme generation failed, continuing..."
-    else
-      log_success "Wallust theme generation completed"
-    fi
+  if ! matugen image "$wallpaper_path" --mode "$mode" --type scheme-smart 2> /dev/null; then
+    log_warn "Matugen theme generation failed, continuing..."
   else
-    # Try to apply the specific theme if available
-    log_info "Applying specific wallust theme: $wallust_theme"
-    if ! wallust theme "$wallust_theme" 2> /dev/null; then
-      log_warn "Specific wallust theme failed, falling back to auto-generation for: $wallpaper_path"
-      # Fallback to running wallust on the wallpaper directly
-      if ! wallust run "$wallpaper_path" --dynamic-threshold 2> /dev/null; then
-        log_warn "Wallust generation failed completely, continuing..."
-      else
-        log_success "Wallust fallback theme generation completed"
-      fi
-    else
-      log_success "Wallust specific theme applied: $wallust_theme"
-    fi
+    log_success "Matugen theme generation completed"
   fi
 }
 
 update_niri_config() {
   local -r niri_config_file="$HOME/.config/niri/config.kdl"
-  local -r wallust_colors_file="$HOME/.cache/wallust/colors.json"
+  local -r matugen_colors_file="$HOME/.cache/wal/colors.json"
 
-  if [[ ! -f "$wallust_colors_file" ]]; then
-    log_warn "Wallust color cache not found, skipping niri config update"
+  if [[ ! -f "$matugen_colors_file" ]]; then
+    log_warn "Matugen color cache not found, skipping niri config update"
     return
   fi
 
   local background_color
-  background_color=$(jq -r '.special.background' "$wallust_colors_file")
+  background_color=$(jq -r '.special.background' "$matugen_colors_file")
 
   if [[ -z "$background_color" ]]; then
-    log_warn "Could not extract background color from wallust cache"
+    log_warn "Could not extract background color from matugen cache"
     return
   fi
 
@@ -653,9 +560,9 @@ update_vscode_theme() {
   fi
 
   if [[ "$WALLPAPER_VARIATION" == "light" ]]; then
-    theme="Wallust-Bordered-Light"
+    theme="Light Modern"
   else
-    theme="Wallust-Bordered-Dark"
+    theme="Dark Modern"
   fi
 
   log_info "Updating VSCode theme to: $theme"
@@ -672,7 +579,7 @@ main() {
   log_info "Starting dynamic theme synchronization"
 
   # Validate dependencies
-  validate_dependencies "awww" "wallust" "jq" "sed" "grep" "head" "tr"
+  validate_dependencies "awww" "matugen" "jq" "sed" "grep" "head" "tr"
 
   # Detect theme from current wallpaper
   detect_theme_from_wallpaper
@@ -708,19 +615,23 @@ main() {
   local icon_theme
   icon_theme=$(map_to_icon_theme "$detected_theme" "$wallpaper_variation")
 
-  local wallust_theme
-  wallust_theme=$(map_to_wallust_theme "$detected_theme" "$wallpaper_variation")
+  local matugen_mode
+  if [[ "$wallpaper_variation" == "light" ]]; then
+    matugen_mode="light"
+  else
+    matugen_mode="dark"
+  fi
 
   # Only apply themes if theme/variation changed
   if [[ $theme_changed -eq 1 ]]; then
     set_gtk_theme "$gtk_theme" "$wallpaper_variation" "$icon_theme"
     set_icon_theme "$icon_theme"
-    run_wallust_theme "$wallust_theme" "$wallpaper_path"
+    run_matugen_theme "$matugen_mode" "$wallpaper_path"
     update_niri_config
     update_vscode_theme
 
     if command -v vicinae > /dev/null 2>&1; then
-      vicinae theme set wallust || log_warn "Failed to set vicinae theme"
+      vicinae theme set matugen || log_warn "Failed to set vicinae theme"
     else
       log_warn "vicinae not found, skipping vicinae theme update"
     fi

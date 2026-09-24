@@ -117,8 +117,8 @@ return {{
         require("neopywal").setup({
             transparent_background = true,
             use_palette = {
-                dark = "wallust",
-                light = "wallust"
+                dark = "pywal",
+                light = "pywal"
             }
         })
         vim.cmd.colorscheme("neopywal-dark")

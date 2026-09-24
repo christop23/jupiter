@@ -1,9 +1,0 @@
-[Unit]
-Description=Battery notification
-
-[Service]
-ExecStart=%h/.config/scripts/low-battery-notify.sh
-Restart=always
-
-[Install]
-WantedBy=default.target

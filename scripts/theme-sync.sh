@@ -4,54 +4,67 @@ set -uo pipefail
 
 sleep 0.8 # let awww set the wallpaper
 
-# Source common utilities if available
-if [[ -f "$(dirname "${BASH_SOURCE[0]}")/lib/common.sh" ]]; then
-  source "$(dirname "${BASH_SOURCE[0]}")/lib/common.sh"
-else
-  # Fallback logging functions if common.sh is not available
-  log_info() {
+log_info() {
     local -r timestamp=$(date '+%Y-%m-%d %H:%M:%S')
-    echo -e "\\033[1;34m[$timestamp] INFO: $*\\033[0m" >&2
-  }
+    echo -e "\033[1;34m[$timestamp] INFO: $*\033[0m" >&2
+}
 
-  log_error() {
+log_error() {
     local -r timestamp=$(date '+%Y-%m-%d %H:%M:%S')
-    echo -e "\\033[1;31m[$timestamp] ERROR: $*\\033[0m" >&2
-  }
+    echo -e "\033[1;31m[$timestamp] ERROR: $*\033[0m" >&2
+}
 
-  log_success() {
+log_success() {
     local -r timestamp=$(date '+%Y-%m-%d %H:%M:%S')
-    echo -e "\\033[1;32m[$timestamp] SUCCESS: $*\\033[0m" >&2
-  }
+    echo -e "\033[1;32m[$timestamp] SUCCESS: $*\033[0m" >&2
+}
 
-  log_warn() {
+log_warn() {
     local -r timestamp=$(date '+%Y-%m-%d %H:%M:%S')
-    echo -e "\\033[1;33m[$timestamp] WARN: $*\\033[0m" >&2
-  }
+    echo -e "\033[1;33m[$timestamp] WARN: $*\033[0m" >&2
+}
 
-  log_debug() {
-    local -r timestamp=$(date '+%Y-%m-%d %H:%M:%S')
-    echo -e "\\033[1;36m[$timestamp] DEBUG: $*\\033[0m" >&2
-  }
+log_debug() {
+    if [[ ${DEBUG:-0} -eq 1 ]]; then
+        local -r timestamp=$(date '+%Y-%m-%d %H:%M:%S')
+        echo -e "\033[1;90m[$timestamp] DEBUG: $*\033[0m" >&2
+    fi
+}
 
-  die() {
+die() {
     log_error "$*"
     exit 1
-  }
+}
 
-  validate_dependencies() {
+validate_dependencies() {
     local -ra required_deps=("$@")
     local missing_deps=()
 
     for dep in "${required_deps[@]}"; do
-      command -v "$dep" > /dev/null 2>&1 || missing_deps+=("$dep")
+        command -v "$dep" > /dev/null 2>&1 || missing_deps+=("$dep")
     done
 
     if [[ ${#missing_deps[@]} -gt 0 ]]; then
-      die "Missing required dependencies: ${missing_deps[*]}"
+        die "Missing required dependencies: ${missing_deps[*]}"
     fi
-  }
-fi
+}
+
+send_notification() {
+    local -r app_name="$1"
+    local -r title="$2"
+    local -r message="$3"
+    local -r urgency="${4:-normal}"
+    local -r icon="${5:-}"
+
+    local notify_args=(
+        --app-name="$app_name"
+        --urgency="$urgency"
+    )
+
+    [[ -n "$icon" ]] && notify_args+=(--icon="$icon")
+
+    notify-send "${notify_args[@]}" "$title" "$message"
+}
 
 # --- Configuration ---
 readonly SCRIPT_NAME="${0##*/}"

@@ -7,12 +7,14 @@ IFS=$'\n\t'
 # CONFIGURATION
 # ==========================
 
-readonly REPO_URL="https://github.com/saatvik333/niri-dotfiles.git"
-readonly DOTDIR="${HOME}/.dotfiles-sevens"
+readonly REPO_URL="https://github.com/christop23/jupiter.git"
+readonly DOTDIR="${HOME}/.dotfiles-jupiter"
 readonly CONFIG_DIR="${HOME}/.config"
-readonly BACKUP_DIR="${HOME}/.config_backup_$(date +%Y%m%d_%H%M%S)"
-readonly LOG_DIR="${HOME}/.cache"
-readonly LOG_FILE="${LOG_DIR}/sevens-dots-install-$(date +%Y%m%d_%H%M%S).log"
+# All transient installer artifacts (backup + log) live here.
+# Removed automatically on successful installation; kept on failure.
+readonly JUPITER_TEMP="${HOME}/jupiter_temp"
+readonly BACKUP_DIR="${JUPITER_TEMP}/config_backup_$(date +%Y%m%d_%H%M%S)"
+readonly LOG_FILE="${JUPITER_TEMP}/jupiter-install-$(date +%Y%m%d_%H%M%S).log"
 
 # Temporary directory for builds (will be cleaned up)
 TEMP_BUILD_DIR=""
@@ -131,7 +133,7 @@ usage() {
   cat << EOF
 Usage: ${0##*/} [OPTIONS]
 
-Sevens-Dots Installer - Automated setup for Niri window manager configuration
+Jupiter Installer - Automated setup for Niri window manager configuration
 
 OPTIONS:
   -h, --help      Display this help message and exit
@@ -166,13 +168,13 @@ EXAMPLES:
   ${0##*/} --help       # Display this help message
 
 REPORT BUGS:
-  https://github.com/saatvik333/niri-dotfiles/issues
+  https://github.com/christop23/jupiter/issues
 
 EOF
 }
 
 version() {
-  printf "Sevens-Dots Installer v2.1\n"
+  printf "Jupiter Installer v1.3\n"
   printf "Defensive Bash Refactored Edition\n"
 }
 
@@ -1130,7 +1132,7 @@ print_header() {
   printf "${GREEN}${BOLD}"
   cat << "EOF"
 ════════════════════════════════════════════════════════════
-  SEVENS-DOTS - Installation Script v2.1
+  JUPITER - Installation Script v1.3
   Automated setup for your Niri window manager configuration
 ════════════════════════════════════════════════════════════
 EOF
@@ -1147,7 +1149,7 @@ print_summary() {
   cat << "EOF"
 ════════════════════════════════════════════════════════════
   INSTALLATION COMPLETED SUCCESSFULLY!
-  Your sevens-dots configuration has been installed
+  Your jupiter configuration has been installed
 ════════════════════════════════════════════════════════════
 EOF
   printf "${NC}\n"
@@ -1173,33 +1175,17 @@ EOF
   printf "  • gtklock can be triggered manually or via idle timeout\n"
   printf "\n"
 
-  if [[ -d "${BACKUP_DIR}" ]] && [[ -n "$(ls -A "${BACKUP_DIR}" 2> /dev/null)" ]]; then
-    printf "${YELLOW}${BOLD}Backup Information:${NC}\n"
-    printf "  Your previous configurations are backed up at:\n"
-    printf "  ${CYAN}%s${NC}\n" "${BACKUP_DIR}"
-    printf "\n"
-
-    local reply
-    read -r -p "Would you like to remove the backup directory? (y/N): " reply < /dev/tty
-    printf "\n"
-
-    if [[ "${reply}" =~ ^[Yy]$ ]]; then
-      rm -rf "${BACKUP_DIR}"
-      msg "Backup directory removed."
-    else
-      info "Backup kept for your reference."
-    fi
-    printf "\n"
+  if [[ -d "${JUPITER_TEMP}" ]]; then
+    info "Cleaning up temporary installer files..."
+    rm -rf "${JUPITER_TEMP}"
+    msg "Removed ${JUPITER_TEMP} (backup and log)."
   fi
-
-  printf "${BLUE}${BOLD}Troubleshooting:${NC}\n"
-  printf "  If you encounter any issues, check the log file:\n"
-  printf "  ${CYAN}%s${NC}\n" "${LOG_FILE}"
+  printf "\n"
   separator
 }
 
 main() {
-  mkdir -p "${LOG_DIR}"
+  mkdir -p "${JUPITER_TEMP}"
 
   print_header
 

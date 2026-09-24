@@ -154,7 +154,6 @@ alias ......='cd ../../../../..'
 # Arch helpers
 alias gitpkg='pacman -Q | grep -i "\-git" | wc -l'
 alias update='sudo pacman -Syu'
-alias mirror="sudo cachyos-rate-mirrors"
 alias cleanup='sudo pacman -Rns (pacman -Qtdq)'
 
 # Shortcuts
@@ -162,7 +161,6 @@ alias apt='man pacman'
 alias apt-get='man pacman'
 alias please='sudo'
 alias jctl="journalctl -p 3 -xb"
-alias nf='neofetch'
 alias ff='fastfetch'
 alias q='exit'
 alias h='history'
@@ -186,7 +184,6 @@ alias search='yay -Ss'
 alias lsearch='yay -Qs'
 alias remove='yay -Rns'
 alias shutdown='systemctl poweroff'
-alias du='dust'
 
 ###################
 ### Environment ###
@@ -194,5 +191,3 @@ alias du='dust'
 set -gx SHELL_CONFIG_DIR $HOME/.config
 set -gx GOPATH $HOME/go
 set -gx PATH $GOPATH/bin $PATH
-set -gx CARGO_HOME $HOME/.cargo
-set -gx PATH $CARGO_HOME/bin $PATH

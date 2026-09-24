@@ -11,18 +11,6 @@
       "tray"
     ]
   },
-  "group/brightness": {
-    "orientation": "inherit",
-    "drawer": {
-      "transition-duration": 400,
-      "children-class": "brightness",
-      "transition-left-to-right": false
-    },
-    "modules": [
-      "backlight",
-      "backlight/slider"
-    ]
-  },
   "group/audio": {
     "orientation": "inherit",
     "drawer": {
@@ -38,8 +26,7 @@
   "custom/cachy": {
     "format": "",
     "tooltip": false,
-    "on-click": "alacritty",
-    "on-click-right": "kitty"
+    "on-click": "alacritty"
   },
   "niri/workspaces": {
     "on-click": "activate",
@@ -66,11 +53,8 @@
   },
   "clock": {
     "interval": 1,
-    "format": "{:%H
-%M}",
-    "format-alt": "{:%d
-%m
-%y}",
+    "format": "{:%H\n%M}",
+    "format-alt": "{:%d\n%m\n%y}",
     "tooltip-format": "<tt><small>{calendar}</small></tt>"
 },
 "mpris": {
@@ -98,7 +82,7 @@
   "modules": [
     {
       "type": "screenshare",
-      "tooltip": false,
+      "tooltip": false
     }
   ],
   "ignore": [
@@ -128,7 +112,6 @@
   "interval": 5,
   "tooltip-format": "{essid}\t{gwaddr}",
   "on-click": "rfkill toggle wifi",
-  "on-click-right": "nm-connection-editor",
   "tooltip": true,
   "max-length": 20
 },
@@ -143,8 +126,7 @@
   "tooltip-format": "{device_enumerate}",
   "tooltip-format-enumerate-connected": "{device_address}",
   "tooltip-format-enumerate-connected-battery": "{device_address} | Battery: {device_battery_percentage}%",
-  "on-click": "rfkill toggle bluetooth",
-  "on-click-right": "blueman-manager"
+  "on-click": "rfkill toggle bluetooth"
 },
 "pulseaudio#microphone": {
   "format": "{format_source}",
@@ -177,56 +159,9 @@
     "Easy Effects Sink"
   ]
 },
-"backlight/slider": {
-  "min": 0,
-  "max": 100,
-  "orientation": "vertical",
-  "device": "intel_backlight"
-},
-"backlight": {
-  "device": "intel_backlight",
-  "format": "{icon}",
-  "format-icons": [
-    "󰃚",
-    "󰃛",
-    "󰃜",
-    "󰃝",
-    "󰃞",
-    "󰃟",
-    "󰃠"
-  ],
-  "reverse-scrolling": true,
-  "smooth-scrolling-threshold": 0.2,
-  "tooltip": false
-},
-"battery": {
-  "interval": 5,
-  "states": {
-    "critical": 10
-  },
-  "format": "{icon}",
-  "format-icons": [
-    "<span size='14pt'>󰁺</span>",
-    "<span size='14pt'>󰁻</span>",
-    "<span size='14pt'>󰁼</span>",
-    "<span size='14pt'>󰁽</span>",
-    "<span size='14pt'>󰁾</span>",
-    "<span size='14pt'>󰁿</span>",
-    "<span size='14pt'>󰂀</span>",
-    "<span size='14pt'>󰂁</span>",
-    "<span size='14pt'>󰂂</span>",
-    "<span size='14pt'>󰁹</span>"
-  ],
-  "format-charging": "<span size='14pt'>󰂄</span>",
-  "format-plugged": "<span size='14pt'>󰚥</span>",
-  "format-critical": "<span size='14pt'>󰂃</span>",
-  "tooltip": true,
-  "tooltip-format": "Charge: {capacity}%",
-  "tooltip-format-charging": "Charging: {capacity}%"
-},
 "custom/powermenu": {
   "format": "<span size='13pt'>󰐥</span>",
-  "on-click": "$HOME/.config/rofi/powermenu/powermenu.sh",
+  "on-click": "$HOME/.config/scripts/powermenu.sh",
   "tooltip": false
 }
 }

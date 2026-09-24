@@ -33,8 +33,6 @@ window#waybar {
 #bluetooth,
 #pulseaudio,
 #pulseaudio.microphone,
-#backlight,
-#battery,
 #custom-powermenu {
   color: @foreground;
   padding: 6px 0;
@@ -85,16 +83,6 @@ window#waybar {
   color: @color1;
 }
 
-#battery.plugged {
-  color: @color4;
-}
-#battery.charging {
-  color: @color2;
-}
-#battery.critical {
-  color: @color3;
-}
-
 tooltip {
   background: @background;
   border: 1px solid @foreground;
@@ -105,24 +93,18 @@ tooltip * {
   background: @background;
 }
 
-#pulseaudio-slider,
-#backlight-slider {
+#pulseaudio-slider {
   min-height: 80px;
 }
 
-#pulseaudio-slider slider,
-#backlight-slider slider {
+#pulseaudio-slider slider {
   background: transparent;
 }
 
-#pulseaudio-slider trough,
-#backlight-slider trough {
+#pulseaudio-slider trough {
   min-width: 8px;
 }
 
 #pulseaudio-slider highlight {
   background: @color4;
-}
-#backlight-slider highlight {
-  background: @color3;
 }

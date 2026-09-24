@@ -9,7 +9,7 @@ return {{
                   "lazyvim.plugins.extras.lang.markdown", "lazyvim.plugins.extras.lang.docker",
                   "lazyvim.plugins.extras.lang.terraform", "lazyvim.plugins.extras.lang.html",
                   "lazyvim.plugins.extras.lang.css", "lazyvim.plugins.extras.lang.tailwind",
-                  "lazyvim.plugins.extras.lang.rust", "lazyvim.plugins.extras.lang.go",
+                  "lazyvim.plugins.extras.lang.go",
                   "lazyvim.plugins.extras.lang.clangd", "lazyvim.plugins.extras.lang.prisma",
                   "lazyvim.plugins.extras.ui.edgy", "lazyvim.plugins.extras.editor.refactoring",
                   "lazyvim.plugins.extras.util.project"}
@@ -20,9 +20,9 @@ return {{
     opts = function(_, opts)
         vim.list_extend(opts.ensure_installed, { -- Core LSP Servers
         "lua-language-server", "pyright", "ruff-lsp", "typescript-language-server", "eslint-lsp", "html-lsp", "css-lsp",
-        "tailwindcss-language-server", "json-lsp", "yaml-language-server", "taplo", "marksman", "rust-analyzer",
+        "tailwindcss-language-server", "json-lsp", "yaml-language-server", "taplo", "marksman",
         "gopls", "dockerfile-language-server", "terraform-ls", "prisma-language-server", "clangd", -- Formatters
-        "stylua", "prettierd", "eslint_d", "shfmt", "rustfmt", "gofumpt", "goimports", "taplo", "black", "isort",
+        "stylua", "prettierd", "eslint_d", "shfmt", "gofumpt", "goimports", "taplo", "black", "isort",
         "clang-format", -- Linters
         "shellcheck", "ruff", "eslint_d", "yamllint", "markdownlint", "hadolint"})
     end
@@ -78,7 +78,6 @@ return {{
             yaml = {"prettierd"},
             markdown = {"prettierd"},
             sh = {"shfmt"},
-            rust = {"rustfmt"},
             go = {"gofumpt", "goimports"},
             toml = {"taplo"},
             terraform = {"terraform_fmt"},
@@ -93,9 +92,6 @@ return {{
             },
             shfmt = {
                 prepend_args = {"-i", "2", "-ci", "-sr"}
-            },
-            rustfmt = {
-                prepend_args = {"--edition", "2021"}
             },
             stylua = {
                 prepend_args = {"--indent-type", "Spaces", "--indent-width", "2", "--column-width", "120"}
@@ -117,8 +113,8 @@ return {{
         require("neopywal").setup({
             transparent_background = true,
             use_palette = {
-                dark = "wallust",
-                light = "wallust"
+                dark = "pywal",
+                light = "pywal"
             }
         })
         vim.cmd.colorscheme("neopywal-dark")

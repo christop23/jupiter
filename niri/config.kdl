@@ -57,26 +57,11 @@ binds {
 
     // Application Shortcuts
     MOD+RETURN                          hotkey-overlay-title="Open Terminal: alacritty" { spawn-sh "alacritty"; }
-    MOD+ALT+RETURN                      hotkey-overlay-title="Open Terminal: kitty" { spawn-sh "kitty"; }
-    MOD+ALT+B                         hotkey-overlay-title="Open Secondary Browser: chrome" { spawn-sh "google-chrome-stable --enable-features=TouchpadOverscrollHistoryNavigation"; }
     MOD+SHIFT+Q                         hotkey-overlay-title="Lock Screen: gtklock" { spawn-sh "gtklock"; }
     MOD+A                               hotkey-overlay-title="Open App Launcher: vicinae" { spawn-sh "vicinae toggle"; }
-    MOD+B                               hotkey-overlay-title="Open Browser: firefox" { spawn-sh "firefox-developer-edition"; }
+    MOD+B                               hotkey-overlay-title="Open Browser: librewolf" { spawn-sh "librewolf"; }
     MOD+E                               hotkey-overlay-title="File Manager: Thunar" { spawn-sh "thunar"; }
-    MOD+ALT+E                           hotkey-overlay-title="File Manager: Yazi" { spawn-sh "yazi"; }
     MOD+W                               hotkey-overlay-title="Open Wallpaper Selector" { spawn-sh "$HOME/.config/scripts/bgselector.sh"; }
-
-    // Media Keys
-    XF86AudioRaiseVolume                allow-when-locked=true { spawn-sh "mediactl volume_up"; }
-    XF86AudioLowerVolume                allow-when-locked=true { spawn-sh "mediactl volume_down"; }
-    XF86MonBrightnessUp                 allow-when-locked=true { spawn-sh "mediactl brightness_up"; }
-    XF86MonBrightnessDown               allow-when-locked=true { spawn-sh "mediactl brightness_down"; }
-    XF86AudioMute                       allow-when-locked=true { spawn-sh "mediactl volume_mute"; }
-    XF86AudioMicMute                    allow-when-locked=true { spawn-sh "mediactl mic_mute"; }
-    XF86AudioNext                       allow-when-locked=true { spawn-sh "mediactl next_track"; }
-    XF86AudioPause                      allow-when-locked=true { spawn-sh "mediactl play_pause"; }
-    XF86AudioPlay                       allow-when-locked=true { spawn-sh "mediactl play_pausse"; }
-    XF86AudioPrev                       allow-when-locked=true { spawn-sh "mediactl prev_track"; }
 
     // Window Management
     MOD+Q                               { close-window; }
@@ -192,7 +177,6 @@ binds {
     MOD+S                               { screenshot; }
     MOD+SHIFT+S                         { screenshot-screen write-to-disk=true; }
     MOD+CTRL+S                          { screenshot-window write-to-disk=true; }
-    MOD+P                               { spawn-sh "pgrep -x hyprpicker >/dev/null || hyprpicker"; }
 
     // Application Restarts
     MOD+ALT+W                           { spawn "sh" "-c" "pgrep -x waybar >/dev/null && killall waybar || waybar &"; }
@@ -263,15 +247,13 @@ animations {
 // Window Rules
 // Application-specific rules
 window-rule {
-    match app-id=r#"firefox$"# title="^Picture-in-Picture$"
+    match app-id=r#"librewolf"# title="^Picture-in-Picture$"
     open-floating true
 }
 
 window-rule {
-    match app-id=r#"firefox"#
-    match app-id=r#"google-chrome"#
+    match app-id=r#"librewolf"#
     match app-id=r#"code"#
-    match app-id=r#"obsidian$"#
     open-maximized true
 }
 
@@ -301,7 +283,7 @@ window-rule {
 }
 
 window-rule {
-    match title=r#".*Sign in - Google Accounts — Mozilla Firefox"#
+    match title=r#".*Sign in - Google Accounts — LibreWolf"#
     open-floating true
 }
 
@@ -339,16 +321,6 @@ window-rule {
 }
 
 // Notification and system utilities
-window-rule {
-    match app-id=r#"nm-connection-editor"#
-    open-floating true
-}
-
-window-rule {
-    match app-id=r#"blueman-manager"#
-    open-floating true
-}
-
 window-rule {
     match app-id=r#"pavucontrol"#
     open-floating true
@@ -389,7 +361,7 @@ environment {
     // GTK Settings
     GDK_BACKEND "wayland,x11"
 
-    // Firefox Wayland
+    // LibreWolf Wayland (Gecko-based, same flags as Firefox)
     MOZ_ENABLE_WAYLAND "1"
     MOZ_DBUS_REMOTE "1"
 

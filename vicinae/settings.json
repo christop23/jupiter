@@ -1,0 +1,30 @@
+{
+    "$schema": "https://vicinae.com/schemas/config.json",
+    "close_on_focus_loss": true,
+    "consider_preedit": false,
+    "favicon_service": "google",
+    "font": {
+        "normal": {
+            "size": 11
+        }
+    },
+    "keybinding": "default",
+    "keybinds": {},
+    "pop_to_root_on_close": true,
+    "search_files_in_root": true,
+    "theme": {
+        "light": {
+            "name": "matugen"
+        },
+        "dark": {
+            "name": "matugen"
+        }
+    },
+    "launcher_window": {
+        "opacity": 0.85,
+        "rounding": 0,
+        "client_side_decorations": {
+            "enabled": true
+        }
+    }
+}

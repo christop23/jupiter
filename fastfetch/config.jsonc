@@ -44,7 +44,7 @@
     },
     {
       "type": "packages",
-      "format": "{} (pacman)",
+      "format": "{pacman} (pacman)",
       "key": "Pkgs  ",
       "keyColor": "35"
     },
@@ -67,11 +67,6 @@
     {
       "type": "disk",
       "key": "Disk  ",
-      "keyColor": "37"
-    },
-    {
-      "type": "battery",
-      "key": "Bat   ",
       "keyColor": "37"
     },
     "break",

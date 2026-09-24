@@ -38,8 +38,7 @@
   "custom/cachy": {
     "format": "",
     "tooltip": false,
-    "on-click": "alacritty",
-    "on-click-right": "kitty"
+    "on-click": "alacritty"
   },
   "niri/workspaces": {
     "on-click": "activate",

@@ -309,17 +309,6 @@ window-rule {
     open-floating true
 }
 
-// Password managers
-window-rule {
-    match app-id=r#"org\.keepassxc\.KeePassXC"# title=r#".*Auto-Type.*"#
-    open-floating true
-}
-
-window-rule {
-    match app-id=r#"Bitwarden"# title=r#".*unlock.*"#
-    open-floating true
-}
-
 // Notification and system utilities
 window-rule {
     match app-id=r#"pavucontrol"#

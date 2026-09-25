@@ -854,7 +854,7 @@ install_yay() {
   fi
 
   info "Cloning yay-bin repository (this may take a moment)..."
-  if ! retry_command 3 git clone --depth=1 https://aur.archlinux.org/yay-bin.git "${TEMP_BUILD_DIR}" >> "${LOG_FILE}" 2>&1; then
+  if ! retry_command 3 git clone --depth=1 https://aur.archlinux.org/yay-bin.git "${TEMP_BUILD_DIR}" 2>&1 | tee -a "${LOG_FILE}"; then
     fatal "Failed to clone yay-bin repository after multiple attempts."
   fi
 
@@ -1071,21 +1071,21 @@ install_colloid_theme() {
   info "Installing Colloid GTK theme..."
   info "Cloning Colloid theme repository (this may take a moment)..."
 
-  if ! retry_command 3 git clone --depth=1 https://github.com/vinceliuice/Colloid-gtk-theme "${theme_dir}" >> "${LOG_FILE}" 2>&1; then
+  if ! retry_command 3 git clone --depth=1 https://github.com/vinceliuice/Colloid-gtk-theme "${theme_dir}" 2>&1 | tee -a "${LOG_FILE}"; then
     rm -rf "${theme_dir}"
     warn "Failed to clone Colloid theme repository after multiple attempts."
     return 1
   fi
 
   info "Installing Colloid theme variants..."
-  if ! (cd "${theme_dir}" && ./install.sh --libadwaita --tweaks all rimless >> "${LOG_FILE}" 2>&1); then
+  if ! (cd "${theme_dir}" && ./install.sh --libadwaita --tweaks all rimless 2>&1 | tee -a "${LOG_FILE}"); then
     rm -rf "${theme_dir}"
     warn "Failed to install Colloid theme (default variant)."
     return 1
   fi
 
   info "Installing Colloid theme (grey-black variant)..."
-  if ! (cd "${theme_dir}" && ./install.sh --libadwaita --theme grey --tweaks black rimless >> "${LOG_FILE}" 2>&1); then
+  if ! (cd "${theme_dir}" && ./install.sh --libadwaita --theme grey --tweaks black rimless 2>&1 | tee -a "${LOG_FILE}"); then
     rm -rf "${theme_dir}"
     warn "Failed to install Colloid theme (grey-black variant)."
     return 1
@@ -1121,14 +1121,14 @@ install_rosepine_theme() {
   info "Installing Rose Pine GTK theme..."
   info "Cloning Rose Pine theme repository (this may take a moment)..."
 
-  if ! retry_command 3 git clone --depth=1 https://github.com/Fausto-Korpsvart/Rose-Pine-GTK-Theme "${theme_dir}" >> "${LOG_FILE}" 2>&1; then
+  if ! retry_command 3 git clone --depth=1 https://github.com/Fausto-Korpsvart/Rose-Pine-GTK-Theme "${theme_dir}" 2>&1 | tee -a "${LOG_FILE}"; then
     rm -rf "${theme_dir}"
     warn "Failed to clone Rose Pine theme repository after multiple attempts."
     return 1
   fi
 
   info "Installing Rose Pine theme with moon variant..."
-  if ! (cd "${theme_dir}/themes" && ./install.sh --libadwaita --tweaks moon macos >> "${LOG_FILE}" 2>&1); then
+  if ! (cd "${theme_dir}/themes" && ./install.sh --libadwaita --tweaks moon macos 2>&1 | tee -a "${LOG_FILE}"); then
     rm -rf "${theme_dir}"
     warn "Failed to install Rose Pine theme."
     return 1
@@ -1164,14 +1164,14 @@ install_osaka_theme() {
   info "Installing Osaka GTK theme..."
   info "Cloning Osaka theme repository (this may take a moment)..."
 
-  if ! retry_command 3 git clone --depth=1 https://github.com/Fausto-Korpsvart/Osaka-GTK-Theme "${theme_dir}" >> "${LOG_FILE}" 2>&1; then
+  if ! retry_command 3 git clone --depth=1 https://github.com/Fausto-Korpsvart/Osaka-GTK-Theme "${theme_dir}" 2>&1 | tee -a "${LOG_FILE}"; then
     rm -rf "${theme_dir}"
     warn "Failed to clone Osaka theme repository after multiple attempts."
     return 1
   fi
 
   info "Installing Osaka theme with solarized variant..."
-  if ! (cd "${theme_dir}/themes" && ./install.sh --libadwaita --tweaks solarized macos >> "${LOG_FILE}" 2>&1); then
+  if ! (cd "${theme_dir}/themes" && ./install.sh --libadwaita --tweaks solarized macos 2>&1 | tee -a "${LOG_FILE}"); then
     rm -rf "${theme_dir}"
     warn "Failed to install Osaka theme."
     return 1
@@ -1246,7 +1246,7 @@ install_colloid_icons() {
   info "Installing Colloid icon theme..."
   info "Cloning Colloid icon theme repository (this may take a moment)..."
 
-  if ! retry_command 3 git clone --depth=1 https://github.com/vinceliuice/Colloid-icon-theme "${icons_dir}" >> "${LOG_FILE}" 2>&1; then
+  if ! retry_command 3 git clone --depth=1 https://github.com/vinceliuice/Colloid-icon-theme "${icons_dir}" 2>&1 | tee -a "${LOG_FILE}"; then
     rm -rf "${icons_dir}"
     warn "Failed to clone Colloid icon theme repository after multiple attempts."
     return 1
@@ -1254,7 +1254,7 @@ install_colloid_icons() {
 
   info "Installing Colloid icon theme with all schemes (bold)..."
   # -d ensures we install to ~/.icons and do NOT trigger a hidden sudo prompt
-  if ! (cd "${icons_dir}" && ./install.sh -d "${HOME}/.icons" --scheme all --bold >> "${LOG_FILE}" 2>&1); then
+  if ! (cd "${icons_dir}" && ./install.sh -d "${HOME}/.icons" --scheme all --bold 2>&1 | tee -a "${LOG_FILE}"); then
     rm -rf "${icons_dir}"
     warn "Failed to install Colloid icon theme."
     return 1
@@ -1461,7 +1461,7 @@ set_default_shell() {
 clone_or_update_dotfiles() {
   if [[ -d "${DOTDIR}/.git" ]]; then
     msg "Dotfiles directory exists. Updating..."
-    if ! retry_command 3 git -C "${DOTDIR}" pull --rebase >> "${LOG_FILE}" 2>&1; then
+    if ! retry_command 3 git -C "${DOTDIR}" pull --rebase 2>&1 | tee -a "${LOG_FILE}"; then
       warn "Failed to update dotfiles after retries. Removing and re-cloning..."
       rm -rf "${DOTDIR}"
       clone_dotfiles
@@ -1477,7 +1477,7 @@ clone_or_update_dotfiles() {
   fi
 
   info "Updating git submodules..."
-  if retry_command 3 git -C "${DOTDIR}" submodule update --init --recursive >> "${LOG_FILE}" 2>&1; then
+  if retry_command 3 git -C "${DOTDIR}" submodule update --init --recursive 2>&1 | tee -a "${LOG_FILE}"; then
     msg "Submodules updated."
   else
     warn "Failed to update submodules after retries. Continuing anyway..."
@@ -1486,7 +1486,7 @@ clone_or_update_dotfiles() {
 
 clone_dotfiles() {
   info "Cloning dotfiles repository (this may take a moment)..."
-  if ! retry_command 3 git clone --depth=1 "${REPO_URL}" "${DOTDIR}" >> "${LOG_FILE}" 2>&1; then
+  if ! retry_command 3 git clone --depth=1 "${REPO_URL}" "${DOTDIR}" 2>&1 | tee -a "${LOG_FILE}"; then
     fatal "Failed to clone dotfiles repository after multiple attempts. Check your internet connection."
   fi
 
@@ -1592,7 +1592,7 @@ create_systemd_services() {
   mkdir -p "${service_dir}"
   create_gtklock_service "${service_dir}"
 
-  systemctl --user daemon-reload >> "${LOG_FILE}" 2>&1 || warn "Failed to reload systemd daemon."
+  systemctl --user daemon-reload 2>&1 | tee -a "${LOG_FILE}" || warn "Failed to reload systemd daemon."
    
   printf "\n"
   info "gtklock service has been created but NOT enabled by default."

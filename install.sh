@@ -117,7 +117,11 @@ readonly NC='\033[0m'
 log() {
   local timestamp
   timestamp="$(date +'%Y-%m-%d %H:%M:%S')"
-  printf "[%s] %s\n" "${timestamp}" "$*" >> "${LOG_FILE}" 2> /dev/null || true
+  # stderr is redirected first on purpose. Bash applies redirections left to
+  # right, so with ">> file 2> /dev/null" a failure to open the log is reported
+  # to a stderr that has not been redirected yet and leaks to the terminal.
+  # That happens on every call after cleanup removes the log directory.
+  printf "[%s] %s\n" "${timestamp}" "$*" 2> /dev/null >> "${LOG_FILE}" || true
 }
 
 msg() {

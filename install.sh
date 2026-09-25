@@ -508,7 +508,7 @@ restore_backup() {
 
 update_system() {
   info "Updating system packages..."
-  if sudo pacman -Syu --noconfirm >> "${LOG_FILE}" 2>&1; then
+  if sudo pacman -Syu < /dev/tty 2>&1 | tee -a "${LOG_FILE}"; then
     msg "System updated successfully."
   else
     fatal "Failed to update system packages."
@@ -517,7 +517,7 @@ update_system() {
 
 install_base_tools() {
   info "Installing base development tools..."
-  if sudo pacman -S --needed --noconfirm git base-devel curl >> "${LOG_FILE}" 2>&1; then
+  if sudo pacman -S --needed git base-devel curl < /dev/tty 2>&1 | tee -a "${LOG_FILE}"; then
     msg "Base tools installed."
   else
     fatal "Failed to install base development tools."
@@ -534,7 +534,7 @@ choose_aur_helper() {
       return 0
     else
       warn "yay is installed but broken (likely due to pacman/libalpm upgrade). Reinstalling..."
-      sudo pacman -Rns --noconfirm yay yay-bin >> "${LOG_FILE}" 2>&1 || true
+      sudo pacman -Rns yay yay-bin < /dev/tty 2>&1 | tee -a "${LOG_FILE}" || true
     fi
   fi
 
@@ -557,7 +557,7 @@ install_yay() {
   fi
 
   info "Building yay-bin package (this may take a few minutes)..."
-  if ! (cd "${TEMP_BUILD_DIR}" && makepkg -si --noconfirm >> "${LOG_FILE}" 2>&1); then
+  if ! (cd "${TEMP_BUILD_DIR}" && makepkg -si < /dev/tty 2>&1 | tee -a "${LOG_FILE}"); then
     fatal "Failed to build and install yay-bin."
   fi
 
@@ -576,7 +576,7 @@ check_yay_linkage() {
   if command -v yay &> /dev/null; then
     if ldd "$(command -v yay)" | grep -q "not found"; then
       warn "Detected broken shared library linkage in yay. Reinstalling."
-      sudo pacman -Rns --noconfirm yay yay-bin >> "${LOG_FILE}" 2>&1 || true
+      sudo pacman -Rns yay yay-bin < /dev/tty 2>&1 | tee -a "${LOG_FILE}" || true
       install_yay
     fi
   fi
@@ -586,7 +586,7 @@ install_pacman_packages() {
   info "Installing official repository packages..."
   info "This may take several minutes..."
 
-  if sudo pacman -S --needed --noconfirm "${PACMAN_PACKAGES[@]}" 2>&1 | tee -a "${LOG_FILE}"; then
+  if sudo pacman -S --needed "${PACMAN_PACKAGES[@]}" < /dev/tty 2>&1 | tee -a "${LOG_FILE}"; then
     msg "Official packages installed successfully."
   else
     fatal "Failed to install official repository packages."
@@ -597,7 +597,7 @@ install_aur_packages() {
   info "Installing AUR packages using ${AUR_HELPER}..."
   info "This may take several minutes..."
 
-  if "${AUR_HELPER}" -S --needed --noconfirm "${AUR_PACKAGES[@]}" 2>&1 | tee -a "${LOG_FILE}"; then
+  if "${AUR_HELPER}" -S --needed "${AUR_PACKAGES[@]}" < /dev/tty 2>&1 | tee -a "${LOG_FILE}"; then
     msg "AUR packages installed successfully."
   else
     fatal "Failed to install AUR packages."
@@ -891,7 +891,7 @@ configure_shells() {
 
   if ! verify_binary fish; then
     info "Installing fish..."
-    if sudo pacman -S --needed --noconfirm fish >> "${LOG_FILE}" 2>&1; then
+    if sudo pacman -S --needed fish < /dev/tty 2>&1 | tee -a "${LOG_FILE}"; then
       msg "fish installed successfully."
     else
       warn "Failed to install fish. It may already be installed."
@@ -914,7 +914,7 @@ set_default_shell() {
   if [[ -z "${fish_bin}" ]]; then
     warn "fish is not installed. Installing it now..."
 
-    if sudo pacman -S --needed --noconfirm fish >> "${LOG_FILE}" 2>&1; then
+    if sudo pacman -S --needed fish < /dev/tty 2>&1 | tee -a "${LOG_FILE}"; then
       fish_bin="$(command -v fish)"
       if [[ -z "${fish_bin}" ]]; then
         error "Failed to locate fish after installation."

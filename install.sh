@@ -24,13 +24,18 @@ AUR_HELPER=""
 
 # Progress tracking
 CURRENT_STEP=0
-readonly TOTAL_STEPS=19
+readonly TOTAL_STEPS=20
 
 # Installation summary tracking
 declare -a INSTALL_SUMMARY=()
 
 # Shell configuration - fish is the default and only shell
 CONFIGURE_FISH=true
+
+# Whether the user opted in to the NVIDIA driver packages
+INSTALL_NVIDIA=false
+NVIDIA_HEADERS=""
+NVIDIA_DRIVER=""
 
 # Process ID for sudo keep-alive
 SUDO_PID=""
@@ -44,6 +49,26 @@ readonly CONFIG_FOLDERS=(
 # Optional dependencies that waybar modules depend on
 readonly OPTIONAL_AUDIO_PACKAGES=("pulseaudio" "pipewire-pulse")
 readonly OPTIONAL_BLUETOOTH_PACKAGES=("bluez" "bluez-utils")
+
+# NVIDIA drivers. Since the 590 driver series Arch only ships the open kernel
+# modules: `nvidia` became `nvidia-open`, `nvidia-dkms` became
+# `nvidia-open-dkms` and `nvidia-lts` became `nvidia-open-lts`. The prebuilt
+# packages carry modules for one specific kernel, the DKMS one builds against
+# whichever kernel you are running.
+readonly NVIDIA_DRIVER_PREBUILT="nvidia-open"
+readonly NVIDIA_DRIVER_PREBUILT_LTS="nvidia-open-lts"
+readonly NVIDIA_DRIVER_DKMS="nvidia-open-dkms"
+
+# Kernel headers, only needed by the DKMS package
+readonly NVIDIA_HEADERS_ZEN="linux-zen-headers"
+readonly NVIDIA_HEADERS_LTS="linux-lts-headers"
+readonly NVIDIA_HEADERS_LINUX="linux-headers"
+
+# Installed alongside whichever driver is chosen
+readonly NVIDIA_COMMON_PACKAGES=(
+  nvidia-utils nvidia-settings
+  libva-utils libvdpau vulkan-icd-loader
+)
 
 # AUR packages to install
 readonly AUR_PACKAGES=(
@@ -312,7 +337,9 @@ check_disk_space() {
     printf "\n"
 
     local reply
-    read -r -p "Continue anyway? (y/N): " reply < /dev/tty
+    # `|| true` so a closed stdin falls through to the safe default below
+    # instead of tripping set -e and aborting the whole install.
+    read -r -p "Continue anyway? (y/N): " reply < /dev/tty || true
     printf "\n"
 
     if [[ ! "${reply}" =~ ^[Yy]$ ]]; then
@@ -401,7 +428,7 @@ check_optional_dependencies() {
     printf "\n"
 
     local reply
-    read -r -p "Continue installation without these optional dependencies? (Y/n): " reply < /dev/tty
+    read -r -p "Continue installation without these optional dependencies? (Y/n): " reply < /dev/tty || true
     printf "\n"
 
     if [[ "${reply}" =~ ^[Nn]$ ]]; then
@@ -412,6 +439,263 @@ check_optional_dependencies() {
     msg "Continuing with installation (missing: ${warnings[*]})"
   else
     msg "All optional dependencies for waybar modules are installed."
+  fi
+}
+
+has_nvidia_gpu() {
+  # Only display-class devices count, so an NVIDIA network card is not a
+  # false positive.
+  if command -v lspci &> /dev/null; then
+    lspci 2> /dev/null |
+      grep -iE '(VGA compatible controller|3D controller|Display controller)' |
+      grep -qi 'nvidia'
+    return $?
+  fi
+
+  # lspci ships in pciutils, which is often not installed this early on a
+  # fresh system. Fall back to sysfs, which needs no extra packages.
+  local device vendor class
+  for device in /sys/bus/pci/devices/*/; do
+    [[ -r "${device}vendor" && -r "${device}class" ]] || continue
+
+    vendor=""
+    class=""
+    read -r vendor < "${device}vendor" || true
+    read -r class < "${device}class" || true
+    vendor="${vendor#0x}"
+    class="${class#0x}"
+
+    if [[ "${vendor}" != "10de" ]]; then
+      continue
+    fi
+
+    # 0300 = VGA, 0302 = 3D controller, 0308 = other display controller
+    if [[ "${class}" == 0300* || "${class}" == 0302* || "${class}" == 0308* ]]; then
+      return 0
+    fi
+  done
+
+  return 1
+}
+
+detect_kernel_flavour() {
+  # uname looks like 7.2.6-arch2-1, 6.9.7-zen1-1 or 6.6.30-lts1-1.
+  case "$(uname -r)" in
+    *-zen*) printf 'zen' ;;
+    *-lts*) printf 'lts' ;;
+    *-arch*) printf 'linux' ;;
+    *) printf 'unknown' ;;
+  esac
+}
+
+select_nvidia_variant() {
+  local flavour choice
+  flavour="$(detect_kernel_flavour)"
+
+  printf "\n"
+  printf "  ${BOLD}Running kernel:${NC} %s (%s)\n" "$(uname -r)" "${flavour}"
+  printf "\n"
+  printf "${BLUE}${BOLD}Which driver package do you want?${NC}\n"
+  printf "  ${BOLD}All of these use the open GPU modules and need Turing or newer,${NC}\n"
+  printf "  ${BOLD}that is GTX 16-series / RTX 20-series (2018) and up.${NC}\n"
+  printf "\n"
+
+  case "${flavour}" in
+    linux)
+      printf "  ${BOLD}1${NC}) ${CYAN}${NVIDIA_DRIVER_PREBUILT}${NC}  prebuilt modules for the standard\n"
+      printf "        kernel. No headers and no DKMS build needed.  ${BOLD}[recommended]${NC}\n"
+      printf "  ${BOLD}2${NC}) ${CYAN}${NVIDIA_DRIVER_DKMS}${NC}  build against your kernel instead.\n"
+      printf "        Unnecessary on the standard kernel, but survives a kernel switch.\n"
+      ;;
+    lts)
+      printf "  ${BOLD}1${NC}) ${CYAN}${NVIDIA_DRIVER_PREBUILT_LTS}${NC}  prebuilt modules for linux-lts.\n"
+      printf "        No headers and no DKMS build needed.  ${BOLD}[recommended]${NC}\n"
+      printf "  ${BOLD}2${NC}) ${CYAN}${NVIDIA_DRIVER_DKMS}${NC}  build against your kernel instead.\n"
+      printf "        Unnecessary on linux-lts, but survives a kernel switch.\n"
+      ;;
+    zen)
+      printf "  ${BOLD}1${NC}) ${CYAN}${NVIDIA_DRIVER_DKMS}${NC}  build against your kernel.\n"
+      printf "        The prebuilt packages only cover the standard kernel, so this is\n"
+      printf "        the only option here. Needs ${CYAN}linux-zen-headers${NC}.\n"
+      ;;
+    *)
+      printf "  ${BOLD}1${NC}) ${CYAN}${NVIDIA_DRIVER_DKMS}${NC}  build against your kernel.\n"
+      printf "        The prebuilt packages only cover the standard kernel, so this is\n"
+      printf "        the only option here. Needs matching kernel headers.\n"
+      ;;
+  esac
+  printf "  ${BOLD}0${NC}) skip the driver entirely\n"
+  printf "\n"
+
+  while true; do
+    if ! read -r -p "Driver package? [1/2, default 1, 0 to skip]: " choice < /dev/tty; then
+      printf "\n"
+      warn "No input available. Skipping NVIDIA driver installation."
+      return 1
+    fi
+    printf "\n"
+
+    case "${choice}" in
+      "" | 1)
+        case "${flavour}" in
+          linux) NVIDIA_DRIVER="${NVIDIA_DRIVER_PREBUILT}" ;;
+          lts) NVIDIA_DRIVER="${NVIDIA_DRIVER_PREBUILT_LTS}" ;;
+          *) NVIDIA_DRIVER="${NVIDIA_DRIVER_DKMS}" ;;
+        esac
+        ;;
+      2)
+        NVIDIA_DRIVER="${NVIDIA_DRIVER_DKMS}"
+        ;;
+      0 | n | none | skip)
+        warn "Skipping NVIDIA driver installation."
+        return 1
+        ;;
+      *)
+        warn "Invalid choice: '${choice}'. Enter 1, 2 or 0."
+        continue
+        ;;
+    esac
+
+    break
+  done
+
+  msg "Selected driver: ${NVIDIA_DRIVER}"
+
+  # Only the DKMS package compiles against the kernel, so it is the only one
+  # that needs headers.
+  if [[ "${NVIDIA_DRIVER}" == "${NVIDIA_DRIVER_DKMS}" ]]; then
+    select_kernel_headers
+  fi
+
+  return 0
+}
+
+select_kernel_headers() {
+  local flavour installed_kernels choice headers
+  flavour="$(detect_kernel_flavour)"
+
+  printf "${BLUE}${BOLD}${NVIDIA_DRIVER} builds a module, so it needs the headers matching${NC}\n"
+  printf "${BOLD}the kernel you are running.${NC}\n"
+
+  installed_kernels="$(pacman -Qq 2> /dev/null | grep -E '^linux(-(lts|zen|hardened|rt|aws))*$' | tr '\n' ' ' || true)"
+  if [[ -n "${installed_kernels}" ]]; then
+    printf "  Installed kernels: ${CYAN}%s${NC}\n" "${installed_kernels}"
+  fi
+  printf "\n"
+
+  # Only ask when the running kernel does not identify itself.
+  case "${flavour}" in
+    zen)
+      headers="${NVIDIA_HEADERS_ZEN}"
+      msg "Detected a zen kernel, so using ${headers}."
+      ;;
+    lts)
+      headers="${NVIDIA_HEADERS_LTS}"
+      msg "Detected a linux-lts kernel, so using ${headers}."
+      ;;
+    linux)
+      headers="${NVIDIA_HEADERS_LINUX}"
+      msg "Detected the standard kernel, so using ${headers}."
+      ;;
+    *)
+      printf "  ${BOLD}1${NC}) zen    ${CYAN}linux-zen-headers${NC}   (Arch Linux mainline kernel)\n"
+      printf "  ${BOLD}2${NC}) lts    ${CYAN}linux-lts-headers${NC}   (long term support kernel)\n"
+      printf "  ${BOLD}3${NC}) linux  ${CYAN}linux-headers${NC}       (stock Arch kernel)\n"
+      printf "\n"
+      printf "  ${YELLOW}Could not tell which kernel flavour you are running${NC}\n"
+      printf "  ${YELLOW}from '$(uname -r)', so please choose.${NC}\n"
+      printf "\n"
+
+      while true; do
+        if ! read -r -p "Which kernel are you running? [1/2/3, default 3]: " choice < /dev/tty; then
+          printf "\n"
+          warn "No input available. Defaulting to ${NVIDIA_HEADERS_LINUX}."
+          headers="${NVIDIA_HEADERS_LINUX}"
+          break
+        fi
+        printf "\n"
+
+        case "${choice}" in
+          1 | zen) headers="${NVIDIA_HEADERS_ZEN}" ;;
+          2 | lts) headers="${NVIDIA_HEADERS_LTS}" ;;
+          "" | 3 | linux) headers="${NVIDIA_HEADERS_LINUX}" ;;
+          *)
+            warn "Invalid choice: '${choice}'. Enter 1, 2 or 3."
+            continue
+            ;;
+        esac
+
+        break
+      done
+      ;;
+  esac
+
+  NVIDIA_HEADERS="${headers}"
+  msg "Selected kernel headers: ${headers}"
+}
+
+configure_nvidia() {
+  info "Checking for NVIDIA graphics hardware..."
+
+  if has_nvidia_gpu; then
+    msg "NVIDIA display device detected."
+  else
+    warn "No NVIDIA display device detected."
+    info "This check is only a hint, so the choice below is still yours to make."
+    info "It reads sysfs, or lspci if pciutils happens to be installed."
+  fi
+
+  # IFS is newline+tab in this script, so join explicitly for single-line hints.
+  local package_list
+  printf -v package_list '%s ' "${NVIDIA_COMMON_PACKAGES[@]}"
+  package_list="${package_list% }"
+
+  printf "\n"
+  printf "${BOLD}Alongside the driver, these will be installed:${NC}\n"
+  printf "  ${CYAN}nvidia-utils${NC}        nvidia-smi plus the GLX/EGL/Vulkan setup Wayland needs\n"
+  printf "  ${CYAN}nvidia-settings${NC}     graphical control panel\n"
+  printf "  ${CYAN}libva-utils${NC}         VA-API video acceleration\n"
+  printf "  ${CYAN}libvdpau${NC}            VDPAU video acceleration\n"
+  printf "  ${CYAN}vulkan-icd-loader${NC}   Vulkan driver loader\n"
+  printf "\n"
+  printf "${BLUE}${BOLD}Note:${NC}\n"
+  printf "  • On hybrid laptops (Intel + NVIDIA) the module loads only when a GPU app runs\n"
+  printf "  • Proprietary drivers occasionally cause a black screen on first boot\n"
+  printf "  • Pascal (GTX 10-series) and Maxwell (GTX 900-series) are not supported by\n"
+  printf "    any official package any more. Those need the legacy branch from the AUR:\n"
+  printf "    ${CYAN}yay -S nvidia-580xx-dkms${NC}\n"
+  printf "  • Remove later with: ${CYAN}sudo pacman -Rns${NC} <driver> ${package_list}\n"
+  printf "\n"
+
+  local reply
+  # `|| true` so a closed stdin counts as "no" rather than tripping set -e
+  # and aborting the whole install through the ERR trap.
+  read -r -p "Install an NVIDIA driver? (y/N): " reply < /dev/tty || true
+  printf "\n"
+
+  if [[ ! "${reply}" =~ ^[Yy]$ ]]; then
+    warn "Skipping NVIDIA driver installation."
+    info "Install it later with: ${CYAN}sudo pacman -S <driver> ${package_list}${NC}"
+    return 0
+  fi
+
+  select_nvidia_variant || return 0
+
+  local -a install_list=("${NVIDIA_DRIVER}")
+
+  if [[ -n "${NVIDIA_HEADERS}" ]]; then
+    install_list=("${NVIDIA_HEADERS}" "${install_list[@]}")
+  fi
+
+  install_list+=("${NVIDIA_COMMON_PACKAGES[@]}")
+
+  info "Installing ${install_list[*]}"
+  info "This may take several minutes while the module is compiled..."
+  if sudo pacman -S --needed "${install_list[@]}" < /dev/tty 2>&1 | tee -a "${LOG_FILE}"; then
+    INSTALL_NVIDIA=true
+    msg "NVIDIA packages installed successfully."
+  else
+    fatal "Failed to install NVIDIA packages."
   fi
 }
 
@@ -477,7 +761,7 @@ offer_restore() {
     printf "\n"
 
     local reply
-    read -r -p "Would you like to restore your backup now? (y/N): " reply < /dev/tty
+    read -r -p "Would you like to restore your backup now? (y/N): " reply < /dev/tty || true
     printf "\n"
 
     if [[ "${reply}" =~ ^[Yy]$ ]]; then
@@ -1204,6 +1488,14 @@ main() {
   step "System Update"
   update_system
   add_summary "System packages updated"
+
+  step "Configuring NVIDIA Graphics"
+  configure_nvidia
+  if [[ "${INSTALL_NVIDIA}" == "true" ]]; then
+    add_summary "NVIDIA driver installed (${NVIDIA_DRIVER})"
+  else
+    add_summary "NVIDIA driver skipped"
+  fi
 
   # MOVED UP: Must install git/base-devel BEFORE attempting to build yay
   step "Installing Base Development Tools"

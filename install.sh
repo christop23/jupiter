@@ -24,7 +24,7 @@ AUR_HELPER=""
 
 # Progress tracking
 CURRENT_STEP=0
-readonly TOTAL_STEPS=20
+readonly TOTAL_STEPS=21
 
 # Installation summary tracking
 declare -a INSTALL_SUMMARY=()
@@ -36,6 +36,9 @@ CONFIGURE_FISH=true
 INSTALL_NVIDIA=false
 NVIDIA_HEADERS=""
 NVIDIA_DRIVER=""
+
+# Whether the user opted in to the greetd + tuigreet greeter
+INSTALL_GREETER=false
 
 # Process ID for sudo keep-alive
 SUDO_PID=""
@@ -69,6 +72,14 @@ readonly NVIDIA_COMMON_PACKAGES=(
   nvidia-utils nvidia-settings
   libva-utils libvdpau vulkan-icd-loader
 )
+
+# Login greeter packages, only installed when the user opts in
+readonly GREETER_PACKAGES=(
+  greetd greetd-tuigreet
+)
+
+# Display managers that must not run at the same time as greetd
+readonly CONFLICTING_DMS=("lightdm" "gdm" "sddm" "ly" "xdm" "lxdm")
 
 # AUR packages to install
 readonly AUR_PACKAGES=(
@@ -888,6 +899,142 @@ install_aur_packages() {
   fi
 }
 
+# ==========================
+# GREETER MANAGEMENT
+# ==========================
+
+disable_conflicting_display_managers() {
+  local service
+  local -a disabled=()
+
+  for service in "${CONFLICTING_DMS[@]}"; do
+    if ! systemctl list-unit-files "${service}.service" &> /dev/null; then
+      continue
+    fi
+
+    if systemctl is-enabled --quiet "${service}.service" &> /dev/null; then
+      if sudo systemctl disable --now "${service}.service" > /dev/null 2>&1; then
+        disabled+=("${service}")
+        msg "Disabled conflicting display manager: ${service}"
+      else
+        warn "Could not disable ${service}. Turn it off manually: sudo systemctl disable --now ${service}"
+      fi
+    fi
+  done
+
+  if [[ ${#disabled[@]} -eq 0 ]]; then
+    info "No conflicting display manager is enabled."
+  fi
+}
+
+write_greetd_config() {
+  local config_file="/etc/greetd/config.toml"
+
+  if [[ -f "${config_file}" ]]; then
+    if sudo cp -f "${config_file}" "${config_file}.jupiter-backup" 2> /dev/null; then
+      warn "Existing greetd config backed up to ${config_file}.jupiter-backup"
+    else
+      warn "Could not back up ${config_file}. It will be overwritten."
+    fi
+  fi
+
+  info "Writing greetd configuration to ${config_file}..."
+
+  # niri-session sets up the systemd user session and XDG environment, which a
+  # bare `niri` does not. --asterisks gives feedback while typing, --remember
+  # pre-fills the username. The F3 session menu picks up niri.desktop from the
+  # default /usr/share/wayland-sessions, so no --sessions flag is needed.
+  if sudo tee "${config_file}" > /dev/null 2>&1 << 'GREETER_CONFIG'
+[terminal]
+vt = 1
+
+[default_session]
+command = "tuigreet --time --remember --asterisks --cmd niri-session"
+user = "greeter"
+GREETER_CONFIG
+  then
+    msg "greetd configuration written."
+  else
+    fatal "Failed to write ${config_file}."
+  fi
+}
+
+configure_greeter() {
+  info "Configuring the login greeter..."
+
+  # IFS is newline+tab in this script, so join explicitly for single-line hints.
+  local package_list
+  printf -v package_list '%s ' "${GREETER_PACKAGES[@]}"
+  package_list="${package_list% }"
+
+  printf "\n"
+  printf "${BOLD}These packages will be installed:${NC}\n"
+  printf "  ${CYAN}greetd${NC}             minimal console display manager, takes over TTY1\n"
+  printf "  ${CYAN}greetd-tuigreet${NC}    terminal greeter used in place of greetd's GTK one\n"
+  printf "\n"
+  printf "${BLUE}${BOLD}What this does:${NC}\n"
+  printf "  • Takes over the graphical login screen on TTY1\n"
+  printf "  • Other display managers (gdm, lightdm, sddm) are disabled if enabled\n"
+  printf "  • Any other display manager can be restored with: ${CYAN}sudo pacman -S gdm${NC}\n"
+  printf "  • Turn the greeter off with: ${CYAN}sudo systemctl disable greetd${NC}\n"
+  printf "\n"
+  printf "${BLUE}${BOLD}Note:${NC}\n"
+  printf "  • It is enabled but not started now, so it takes effect on next boot\n"
+  printf "  • The greeter starts niri after you log in\n"
+  printf "\n"
+
+  local reply
+  read -r -p "Install and enable the greetd + tuigreet greeter? (Y/n): " reply < /dev/tty
+  printf "\n"
+
+  if [[ "${reply}" =~ ^[Nn]$ ]]; then
+    warn "Skipping greeter setup."
+    info "Set it up later with: ${CYAN}sudo pacman -S ${package_list}${NC}"
+    return 0
+  fi
+
+  if ! verify_binary tuigreet || ! pacman -Qi greetd &> /dev/null; then
+    info "Installing greeter packages..."
+    if sudo pacman -S --needed "${GREETER_PACKAGES[@]}" < /dev/tty 2>&1 | tee -a "${LOG_FILE}"; then
+      msg "Greeter packages installed successfully."
+    else
+      fatal "Failed to install greeter packages."
+    fi
+  else
+    msg "greetd and tuigreet are already installed."
+  fi
+
+  if ! verify_binary tuigreet; then
+    fatal "tuigreet binary not found after installation."
+  fi
+
+  disable_conflicting_display_managers
+
+  # tuigreet stores its remembered username here and it must belong to greeter.
+  info "Preparing the tuigreet cache directory..."
+  if sudo mkdir -p /var/cache/tuigreet &&
+    sudo chown greeter:greeter /var/cache/tuigreet &&
+    sudo chmod 0755 /var/cache/tuigreet; then
+    msg "tuigreet cache directory ready."
+  else
+    warn "Could not prepare /var/cache/tuigreet. Remembering the username may not work."
+  fi
+
+  write_greetd_config
+
+  info "Enabling greetd service..."
+  if sudo systemctl enable greetd.service > /dev/null 2>&1; then
+    if systemctl is-enabled --quiet greetd.service; then
+      INSTALL_GREETER=true
+      msg "greetd enabled. It will start on your next boot."
+    else
+      fatal "greetd did not reach an enabled state."
+    fi
+  else
+    fatal "Failed to enable greetd.service."
+  fi
+}
+
 install_colloid_theme() {
   local theme_installed=false
   local themes_dir="${HOME}/.themes"
@@ -1558,6 +1705,14 @@ main() {
   step "Installing Wallpapers"
   install_wallpapers
   add_summary "Wallpapers installed to ~/Pictures/Wallpapers"
+
+  step "Configuring Login Greeter"
+  configure_greeter
+  if [[ "${INSTALL_GREETER}" == "true" ]]; then
+    add_summary "Login greeter configured (greetd + tuigreet)"
+  else
+    add_summary "Login greeter skipped"
+  fi
 
   step "Configuring System Services"
   create_systemd_services

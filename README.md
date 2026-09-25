@@ -73,6 +73,7 @@ The automated installer will:
    Verify system compatibility (Arch-based only)
    Update your system packages
    Ask whether to install an NVIDIA driver (matched to your kernel)
+   Ask whether to set up the greetd + tuigreet login greeter
    Install base development tools (git, base-devel, curl)
    Set up AUR helper (yay)
    Install all required packages (niri, waybar, fish, etc.)

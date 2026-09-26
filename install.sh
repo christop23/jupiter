@@ -735,7 +735,6 @@ configure_nvidia() {
   printf "  • Pascal (GTX 10-series) and Maxwell (GTX 900-series) are not supported by\n"
   printf "    any official package any more. Those need the legacy branch from the AUR:\n"
   printf "    ${CYAN}yay -S nvidia-580xx-dkms${NC}\n"
-  printf "  • Remove later with: ${CYAN}sudo pacman -Rns${NC} <driver> ${package_list}\n"
   printf "\n"
 
   local reply
@@ -1508,7 +1507,6 @@ configure_greeter() {
   printf "${BLUE}${BOLD}What this does:${NC}\n"
   printf "  • Takes over the graphical login screen on TTY1\n"
   printf "  • Other display managers (gdm, lightdm, sddm) are disabled if enabled\n"
-  printf "  • Any other display manager can be restored with: ${CYAN}sudo pacman -S gdm${NC}\n"
   printf "  • Turn the greeter off with: ${CYAN}sudo systemctl disable greetd${NC}\n"
   printf "\n"
   printf "${BLUE}${BOLD}Note:${NC}\n"

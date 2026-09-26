@@ -120,35 +120,64 @@ Development Tools
 
 ## Themes
 
-[Matugen](https://github.com/InioX/matugen) is used for the theming using it's color palettes and it's palette generation using wallpaper.
+[Matugen](https://github.com/InioX/matugen) generates the colour palette from
+the wallpaper, and `scripts/theme-sync.sh` applies it across the desktop when
+you pick a new wallpaper with `MOD + W`.
 
-| Theme      | GTK Theme                                                                                   | Icon Theme                                                                           |
-| ---------- | ------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------ |
-| Catppuccin | [Colloid (Light/Dark) Catppuccin](https://github.com/vinceliuice/Colloid-gtk-theme)         | [Colloid Catppuccin (Light/Dark)](https://github.com/vinceliuice/Colloid-icon-theme) |
-| Everforest | [Colloid (Light/Dark) Everforest](https://github.com/vinceliuice/Colloid-gtk-theme)         | [Colloid Everforest (Light/Dark)](https://github.com/vinceliuice/Colloid-icon-theme) |
-| Gruvbox    | [Colloid (Light/Dark) Gruvbox](https://github.com/vinceliuice/Colloid-gtk-theme)            | [Colloid Gruvbox (Light/Dark)](https://github.com/vinceliuice/Colloid-icon-theme)    |
-| Nord       | [Colloid (Light/Dark) Nord](https://github.com/vinceliuice/Colloid-gtk-theme)               | [Colloid Nord (Light/Dark)](https://github.com/vinceliuice/Colloid-icon-theme)       |
-| Rosé Pine  | [Rose Pine GTK Theme (Light/Dark)](https://github.com/Fausto-Korpsvart/Rose-Pine-GTK-Theme) | [Colloid Catppuccin (Light/Dark)](https://github.com/vinceliuice/Colloid-icon-theme) |
-| Dracula    | [Colloid (Light/Dark) Dracula](https://github.com/vinceliuice/Colloid-gtk-theme)            | [Colloid Dracula (Light/Dark)](https://github.com/vinceliuice/Colloid-icon-theme)    |
-| Material   | [Colloid Grey (Light/Dark)](https://github.com/vinceliuice/Colloid-gtk-theme)               | [Colloid (Light/Dark)](https://github.com/vinceliuice/Colloid-icon-theme)            |
-| Solarized  | [Osaka GTK Theme (Light/Dark)](https://github.com/Fausto-Korpsvart/Osaka-GTK-Theme)         | [Colloid Everforest (Light/Dark)](https://github.com/vinceliuice/Colloid-icon-theme) |
+Two things about how that works are worth knowing, because both are easy to
+assume the other way round:
+
+- Matugen writes `~/.config/gtk-3.0/gtk.css` and `~/.config/gtk-4.0/gtk.css`
+  directly. GTK loads `gtk.css` from those directories and nothing else, so a
+  file called `colors.css` there would be read by no application at all.
+- The GTK 4 stylesheet is written against the standard colour names, so
+  redefining those in the user stylesheet takes effect. The GTK 3 one is not:
+  Colloid's GTK 3 stylesheet paints its surfaces with literal colours and
+  barely uses a colour name at all, so GTK 3 is reached by the explicit
+  `window` / `headerbar` / `view` rules at the bottom of the template instead.
+
+The theme is chosen from the wallpaper's own path, so the name of the directory
+two levels above the image is what selects it. Each scheme below is a directory
+under `wallpapers/`, and each of those contains `Dark/` and/or `Light/`.
+
+| Wallpaper scheme | GTK Theme                                                            | Icon Theme                     |
+| ---------------- | -------------------------------------------------------------------- | ------------------------------ |
+| Catppuccin       | [Colloid Catppuccin](https://github.com/vinceliuice/Colloid-gtk-theme) | Colloid Catppuccin             |
+| Dracula          | [Colloid Dracula](https://github.com/vinceliuice/Colloid-gtk-theme)   | Colloid Dracula                |
+| Everforest       | [Colloid Everforest](https://github.com/vinceliuice/Colloid-gtk-theme) | Colloid Everforest             |
+| Gruvbox          | [Colloid Gruvbox](https://github.com/vinceliuice/Colloid-gtk-theme)   | Colloid Gruvbox                |
+| Material         | [Colloid Grey](https://github.com/vinceliuice/Colloid-gtk-theme)      | Colloid                        |
+| Nord             | [Colloid Nord](https://github.com/vinceliuice/Colloid-gtk-theme)      | Colloid Nord                   |
+| Osaka            | [Osaka](https://github.com/Fausto-Korpsvart/Osaka-GTK-Theme)          | Colloid Everforest             |
+| Rose-Pine        | [Rosé Pine](https://github.com/Fausto-Korpsvart/Rose-Pine-GTK-Theme)  | Colloid Catppuccin             |
+
+Two of these do not have a matching Colloid icon variant, so they borrow the
+closest one: Rose-Pine uses the Catppuccin icons and Osaka uses Everforest.
+Material's dark variant is `Colloid-Grey-Dark`, which is a different name from
+its light one.
+
+There is no Solarized wallpaper directory, so no wallpaper can select a
+Solarized theme, even though the Osaka GTK theme is installed under a
+Solarized name.
 
 Thanks to [vinceliuice](https://github.com/vinceliuice) and [Fausto-Korpsvart](https://github.com/Fausto-Korpsvart) for providing awesome GTK themes.
 
 ## Preconfigured Tools
 
-- Neovim
-- Vicinae
-- Waybar
-- Fish
-- Fastfetch
-- Mako
-- Alacritty
-- Starship
+Every one of these is symlinked into `~/.config` by the installer, and each is
+listed in `install.sh` under `CONFIG_FOLDERS` or `CONFIG_FILES`:
+
+- Neovim (`~/.config/nvim`)
+- Vicinae, Waybar, Fish, Fastfetch, Mako, Alacritty, Starship
+- Zathura, Thunar, GTKLock, pavucontrol
+- Matugen (`~/.config/matugen`) and `~/.config/scripts`
 
 ## Keybinds
 
-> **Note:** `MOD` key is the Super/Windows key by default.
+> **Note:** `MOD` is the Super/Windows key when niri runs on a TTY, which is the
+> normal case. niri maps it to Alt instead when running nested inside another
+> compositor, so testing in a window changes every binding below. Set it
+> explicitly with `input { mod-key "Super" }` if you want it fixed.
 
 ### System & Shortcuts
 
@@ -194,6 +223,11 @@ Thanks to [vinceliuice](https://github.com/vinceliuice) and [Fausto-Korpsvart](h
 
 #### Mouse Navigation
 
+Scroll without a modifier navigates; with a modifier it moves. The vertical
+pair differs from the horizontal one, which is worth knowing before you reach
+for it: `MOD + Scroll` changes workspace, but `MOD + Ctrl + Scroll` changes the
+height of the window, not the column position.
+
 | Keybind                     | Action                        |
 | --------------------------- | ----------------------------- |
 | `MOD + Scroll Down`         | Focus workspace down          |
@@ -204,6 +238,8 @@ Thanks to [vinceliuice](https://github.com/vinceliuice) and [Fausto-Korpsvart](h
 | `MOD + Shift + Scroll Up`   | Move column to workspace up   |
 | `MOD + Ctrl + Scroll Right` | Move column right             |
 | `MOD + Ctrl + Scroll Left`  | Move column left              |
+| `MOD + Ctrl + Scroll Down`  | Decrease window height by 5%  |
+| `MOD + Ctrl + Scroll Up`    | Increase window height by 5%  |
 
 ### Workspace Management
 
@@ -251,8 +287,6 @@ Thanks to [vinceliuice](https://github.com/vinceliuice) and [Fausto-Korpsvart](h
 | `MOD + ]`                  | Increase column width by 10%  |
 | `MOD + Shift + [`          | Decrease window height by 10% |
 | `MOD + Shift + ]`          | Increase window height by 10% |
-| `MOD + Ctrl + Scroll Down` | Decrease window height by 5%  |
-| `MOD + Ctrl + Scroll Up`   | Increase window height by 5%  |
 
 ### Window Modes
 

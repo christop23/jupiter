@@ -1064,6 +1064,16 @@ install_pacman_packages() {
   preview_virtual_providers
   resolve_virtual_providers
 
+  # drop_installed_targets removes anything pacman already has, so on a machine
+  # that already runs most of this stack the list comes back empty. pacman exits
+  # 1 with "no targets specified" in that case, which under pipefail reached the
+  # fatal below and killed the install on the very re-run the rest of this file
+  # goes to such lengths to support.
+  if [[ ${#PACMAN_TARGETS[@]} -eq 0 ]]; then
+    msg "Every requested package is already installed, nothing to do."
+    return 0
+  fi
+
   info "Installing official repository packages..."
   info "This may take several minutes..."
 

@@ -588,9 +588,14 @@ has_nvidia_gpu() {
   # Only display-class devices count, so an NVIDIA network card is not a
   # false positive.
   if command -v lspci &> /dev/null; then
+    # One pass, and no -q on the last grep: `grep -q` exits at the first match
+    # without draining the pipe, so the upstream grep took EPIPE and exited 141,
+    # and pipefail reported that as the pipeline's status. On a hybrid laptop
+    # where the dGPU is enumerated before the iGPU that is a false negative on
+    # the one machine most likely to want the proprietary driver.
     lspci 2> /dev/null |
       grep -iE '(VGA compatible controller|3D controller|Display controller)' |
-      grep -qi 'nvidia'
+      grep -i 'nvidia' > /dev/null
     return $?
   fi
 

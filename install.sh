@@ -19,6 +19,10 @@ readonly LOG_FILE="${JUPITER_TEMP}/jupiter-install-$(date +%Y%m%d_%H%M%S).log"
 # Temporary directory for builds (will be cleaned up)
 TEMP_BUILD_DIR=""
 
+# Where a replacement clone is staged before it is swapped in. Empty unless one
+# is being staged, which is also how the cleanup knows to leave it alone.
+DOTFILES_STAGING_DIR=""
+
 # AUR helper choice (will be set interactively)
 AUR_HELPER=""
 
@@ -333,6 +337,12 @@ cleanup_temp_files() {
   if [[ -n "${TEMP_BUILD_DIR}" ]] && [[ -d "${TEMP_BUILD_DIR}" ]]; then
     info "Cleaning up temporary build directory..."
     rm -rf "${TEMP_BUILD_DIR}" 2> /dev/null || true
+  fi
+
+  # A staged clone that never got swapped in. Whatever it was replacing is still
+  # in place, so removing this loses nothing.
+  if [[ -n "${DOTFILES_STAGING_DIR}" ]] && [[ -d "${DOTFILES_STAGING_DIR}" ]]; then
+    rm -rf "${DOTFILES_STAGING_DIR}" 2> /dev/null || true
   fi
 }
 
@@ -2293,40 +2303,180 @@ set_default_shell() {
 # DOTFILES MANAGEMENT
 # ==========================
 
+# Prints one line per thing the checkout holds that a fresh clone would not:
+# modified and untracked files, and commits that were never pushed. Nothing is
+# printed when it is safe to delete, which is also what happens when the answer
+# cannot be worked out, except that an unreadable status prints a line of its own
+# so the caller asks rather than assumes.
+#
+# The status is only data, never a message: the caller prints it, so that
+# mapfile cannot pick up a warning as if it were a file entry.
+dotfiles_local_changes() {
+  local status
+
+  if ! status="$(git -C "${DOTDIR}" status --porcelain 2> /dev/null)"; then
+    printf '?  could not read the git status of %s\n' "${DOTDIR}"
+    return 0
+  fi
+
+  if [[ -n "${status}" ]]; then
+    printf '%s\n' "${status}"
+  fi
+
+  # git status says nothing about commits, so a local commit is invisible to it
+  # and would be lost just as silently. Only meaningful once an upstream is
+  # recorded, which a clone does and a detached tree does not.
+  if git -C "${DOTDIR}" rev-parse --verify --quiet '@{u}' &> /dev/null; then
+    local unpushed
+    unpushed="$(git -C "${DOTDIR}" log --oneline '@{u}..HEAD' 2> /dev/null || true)"
+    if [[ -n "${unpushed}" ]]; then
+      printf '   commits not pushed to the remote:\n'
+      printf '%s\n' "${unpushed}"
+    fi
+  fi
+
+  return 0
+}
+
+# What a directory that is not a checkout holds. Used for the listing when the
+# dotfiles path turns out not to be a repository, where there is no git status
+# to ask and the contents are the only thing that can be shown.
+dotfiles_directory_listing() {
+  ls -A "${DOTDIR}" 2> /dev/null | sed 's/^/   /' || true
+}
+
+# Asks before removing the checkout. The answer defaults to keeping it, both on
+# a bare Enter and on a closed stdin, so no path through this deletes anything
+# the person running the install did not ask for. The second argument is the
+# function that produces the listing, so the non-repository case can show the
+# directory's own contents.
+confirm_replace_dotfiles() {
+  local reason="$1"
+  local lister="${2:-dotfiles_local_changes}"
+  local reply=""
+
+  warn "${reason}"
+  warn "These would be lost:"
+  local -a changes=()
+  local -a shown=()
+
+  mapfile -t changes < <("${lister}")
+  if [[ ${#changes[@]} -eq 0 ]]; then
+    printf '  (nothing to show)\n'
+  else
+    shown=("${changes[@]:0:10}")
+    printf '  %s\n' "${shown[@]}"
+    if [[ ${#changes[@]} -gt ${#shown[@]} ]]; then
+      printf '  ... and %d more\n' "$(( ${#changes[@]} - ${#shown[@]} ))"
+    fi
+  fi
+  printf "\n"
+
+  # `|| true` so a closed stdin falls through to the default below, which is to
+  # keep, matching every other prompt in this script.
+  read -r -p "Replace ${DOTDIR} with a fresh copy? (y/N): " reply < /dev/tty || true
+  printf "\n"
+
+  [[ "${reply}" =~ ^[Yy]$ ]]
+}
+
 clone_or_update_dotfiles() {
   if [[ -d "${DOTDIR}/.git" ]]; then
     msg "Dotfiles directory exists. Updating..."
-    if ! retry_command 3 git -C "${DOTDIR}" pull --rebase 2>&1 | tee -a "${LOG_FILE}"; then
-      warn "Failed to update dotfiles after retries. Removing and re-cloning..."
-      rm -rf "${DOTDIR}"
+
+    # git refuses to rebase over uncommitted work, and used to be read as a
+    # network failure, which answered it by deleting the checkout. So the state
+    # is established first and the question is put to the person running the
+    # install. Checking here also means the pull is not attempted at all when it
+    # cannot succeed, rather than retried three times first.
+    local -a changes=()
+    mapfile -t changes < <(dotfiles_local_changes)
+
+    if [[ ${#changes[@]} -gt 0 ]]; then
+      if confirm_replace_dotfiles "The dotfiles checkout has changes that a fresh copy would not have:"; then
+        clone_dotfiles
+      else
+        warn "Keeping ${DOTDIR}. The dotfiles update is skipped."
+        info "Your files are untouched. To update later, deal with the changes first:"
+        info "  git -C ${DOTDIR} status"
+      fi
+    elif ! retry_command 3 git -C "${DOTDIR}" pull --rebase 2>&1 | tee -a "${LOG_FILE}"; then
+      # Reached only when the checkout is clean, so there is nothing here worth
+      # asking about: no modified files, no untracked files and no unpushed
+      # commits. The re-clone still stages its copy first, so even this branch
+      # cannot leave the machine with no dotfiles if the network stays down.
+      warn "Failed to update dotfiles after retries. Re-cloning from scratch..."
       clone_dotfiles
     else
       msg "Dotfiles updated successfully."
     fi
   elif [[ -d "${DOTDIR}" ]]; then
-    warn "Dotfiles directory exists but is not a git repository. Removing and re-cloning..."
-    rm -rf "${DOTDIR}"
-    clone_dotfiles
+    # Not a checkout, so it is not ours and there is no way to tell what is in
+    # it. Deleting it unasked is the one case with no recovery at all.
+    if confirm_replace_dotfiles "The dotfiles directory exists but is not a git repository:" dotfiles_directory_listing; then
+      clone_dotfiles
+    else
+      warn "Keeping ${DOTDIR}, so no configurations will be linked from the repository."
+      info "Move or remove it yourself and re-run to install the dotfiles."
+    fi
   else
     clone_dotfiles
   fi
 
-  info "Updating git submodules..."
-  if retry_command 3 git -C "${DOTDIR}" submodule update --init --recursive 2>&1 | tee -a "${LOG_FILE}"; then
-    msg "Submodules updated."
-  else
-    warn "Failed to update submodules after retries. Continuing anyway..."
+  # Only a checkout can have submodules, and the directory is not necessarily
+  # one: it is left alone when it turns out not to be a repository.
+  if [[ -d "${DOTDIR}/.git" ]]; then
+    info "Updating git submodules..."
+    if retry_command 3 git -C "${DOTDIR}" submodule update --init --recursive 2>&1 | tee -a "${LOG_FILE}"; then
+      msg "Submodules updated."
+    else
+      warn "Failed to update submodules after retries. Continuing anyway..."
+    fi
   fi
 }
 
 clone_dotfiles() {
+  local target="${DOTDIR}"
+
+  # Replaces whatever is at ${DOTDIR}, in the only order that cannot lose
+  # anything. When a directory is already there, the fresh copy is cloned
+  # somewhere else first and swapped in only once it has been verified, so a
+  # failed clone leaves the old one exactly as it was rather than leaving
+  # nothing at all. With nothing to replace there is nothing to protect, the
+  # clone goes straight to ${DOTDIR}, and no staging is involved.
+  #
+  # The staging directory is a sibling of ${DOTDIR} and so on the same
+  # filesystem, which makes the swap a rename rather than a copy of the lot.
+  if [[ -e "${DOTDIR}" ]]; then
+    msg "Cloning a fresh copy first, so the current one is only replaced once it works..."
+    DOTFILES_STAGING_DIR="$(mktemp -d "${HOME}/.dotfiles-staging.XXXXXX")"
+    if [[ ! -d "${DOTFILES_STAGING_DIR}" ]]; then
+      DOTFILES_STAGING_DIR=""
+      fatal "Failed to create a staging directory for the fresh copy."
+    fi
+    target="${DOTFILES_STAGING_DIR}/repo"
+  fi
+
   info "Cloning dotfiles repository (this may take a moment)..."
-  if ! retry_command 3 git clone --depth=1 "${REPO_URL}" "${DOTDIR}" 2>&1 | tee -a "${LOG_FILE}"; then
+  if ! retry_command 3 git clone --depth=1 "${REPO_URL}" "${target}" 2>&1 | tee -a "${LOG_FILE}"; then
+    # Deliberately no rm -rf of ${DOTDIR} here. That is the whole point of the
+    # staging: whatever it was is still there, and cleanup_temp_files removes
+    # the unusable staged copy on the way out.
     fatal "Failed to clone dotfiles repository after multiple attempts. Check your internet connection."
   fi
 
-  if [[ ! -d "${DOTDIR}/.git" ]]; then
+  if [[ ! -d "${target}/.git" ]]; then
     fatal "Repository cloned but .git directory not found. Clone may be corrupted."
+  fi
+
+  if [[ "${target}" != "${DOTDIR}" ]]; then
+    msg "Fresh copy verified. Replacing the previous one..."
+    rm -rf "${DOTDIR}"
+    mv "${target}" "${DOTDIR}"
+    # The staging directory itself is now empty, and clearing the variable first
+    # would leave it behind for the exit cleanup to miss.
+    rmdir "${DOTFILES_STAGING_DIR}" 2> /dev/null || true
+    DOTFILES_STAGING_DIR=""
   fi
 
   msg "Dotfiles cloned successfully."

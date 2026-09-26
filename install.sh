@@ -190,8 +190,14 @@ readonly PACMAN_PACKAGES=(
   #                       QT_QPA_PLATFORMTHEME, without which Qt cannot read
   #                       the Colloid theme in ~/.themes
   #   networkmanager      nmtui, which fish/config.fish aliases as `wifi`
-  #   playerctl           the [playerctl] section of gtklock/config.ini
-  qt5ct qt6ct networkmanager playerctl
+  #
+  # playerctl is deliberately absent. It was here for gtklock's [playerctl]
+  # section, but gtklock 4.0.0 ships seven files and no modules at all -- there
+  # is no /usr/lib/gtklock/playerctl-module.so to load, and nothing passes -m
+  # anyway, so that section could never be read. waybar depends on playerctl and
+  # links libplayerctl for its mpris module, so the library is present regardless
+  # and the binary comes with it.
+  qt5ct qt6ct networkmanager
   "${PACMAN_PROVIDER_PORTAL}" "${PACMAN_PROVIDER_JACK}"
   "${PACMAN_PROVIDER_WIREPLUMBER}" "${PACMAN_PROVIDER_FONT}"
   "${PACMAN_PROVIDER_TESSDATA}"

@@ -60,9 +60,6 @@
 "mpris": {
   "format": "<span size='14pt'>󰐎</span>",
   "interval": 1,
-  "on-click": "playerctl play-pause",
-  "on-click-right": "playerctl next",
-  "on-click-middle": "playerctl previous",
   "tooltip": true,
   "tooltip-format": "{title}"
 },

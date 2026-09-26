@@ -1342,9 +1342,19 @@ analyze_virtual_providers() {
   fi
 
   # Seeds and the already-asked list are space joined for the same reason.
+  #
+  # Seeds given as arguments are remembered, because resolve_virtual_providers
+  # re-runs this analysis once per round to catch the follow-up rows an answer
+  # surfaces, and it calls it with no arguments. Without this the AUR step's
+  # seeds survived only the first round, so from round two the walk started from
+  # the providers chosen so far and anything reachable only through an AUR
+  # dependency was never reported. The five round loop silently degraded to one.
   local seeds=""
   if [[ $# -gt 0 ]]; then
     printf -v seeds '%s ' "$@"
+    ANALYZER_SEEDS=("${@}")
+  elif [[ ${#ANALYZER_SEEDS[@]} -gt 0 ]]; then
+    printf -v seeds '%s ' "${ANALYZER_SEEDS[@]}"
   fi
 
   # `|| true` so a missing tar or awk degrades to no report instead of
@@ -1359,6 +1369,11 @@ analyze_virtual_providers() {
 # Tab separated analysis of the current target list, refreshed by
 # analyze_virtual_providers. Empty when the sync databases are unreadable.
 PROVIDER_REPORT=""
+
+# Seeds the current analysis was started from, so the per-round re-analysis
+# inside resolve_virtual_providers walks the same set rather than only what the
+# previous round's answers happened to reach.
+ANALYZER_SEEDS=()
 
 # Basenames whose backup copy failed in create_backup, read by create_symlinks
 # so it leaves those in place instead of deleting the only remaining copy.

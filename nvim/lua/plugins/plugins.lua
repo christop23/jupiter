@@ -18,13 +18,28 @@ return {{
 }, {
     "mason-org/mason.nvim",
     opts = function(_, opts)
-        vim.list_extend(opts.ensure_installed, { -- Core LSP Servers
-        "lua-language-server", "pyright", "ruff-lsp", "typescript-language-server", "eslint-lsp", "html-lsp", "css-lsp",
-        "tailwindcss-language-server", "json-lsp", "yaml-language-server", "taplo", "marksman",
-        "gopls", "dockerfile-language-server", "terraform-ls", "prisma-language-server", "clangd", -- Formatters
-        "stylua", "prettierd", "eslint_d", "shfmt", "gofumpt", "goimports", "taplo", "black", "isort",
-        "clang-format", -- Linters
-        "shellcheck", "ruff", "eslint_d", "yamllint", "markdownlint", "hadolint"})
+        -- Deduplicated on the way in. taplo and eslint_d each appeared twice in
+        -- the literal below, once under the Formatters comment and once under
+        -- the Linters one, so mason was asked to install the same tool twice on
+        -- every fresh machine. vim.list_extend does not check.
+        local wanted = { -- Servers
+            "lua-language-server", "pyright", "ruff-lsp", "typescript-language-server", "eslint-lsp",
+            "html-lsp", "css-lsp", "tailwindcss-language-server", "json-lsp", "yaml-language-server",
+            "taplo", "marksman", "gopls", "dockerfile-language-server", "terraform-ls",
+            "prisma-language-server", "clangd",
+            -- Formatters
+            "stylua", "prettierd", "eslint_d", "shfmt", "gofumpt", "goimports", "black", "isort",
+            "clang-format", "tflint", "selene", "stylelint", "htmlhint", "typos",
+            -- Linters
+            "shellcheck", "ruff", "yamllint", "markdownlint", "hadolint",
+        }
+        local seen = {}
+        for _, tool in ipairs(wanted) do
+            if not seen[tool] then
+                seen[tool] = true
+                table.insert(opts.ensure_installed, tool)
+            end
+        end
     end
 }, {
     "mfussenegger/nvim-lint",
@@ -100,9 +115,27 @@ return {{
                 prepend_args = {"--line-length", "88", "--target-version", "py38"}
             },
             ["clang-format"] = {
-                prepend_args = {"--style=Google"}
+                -- No --style here on purpose. A --style argument overrides the
+                -- .clang-format file outright, so passing --style=Google made
+                -- the nvim/.clang-format in this repo dead: its IndentWidth 2,
+                -- ColumnLimit 80 and BreakBeforeBraces Attach were never
+                -- applied. clang-format finds the file by itself from the
+                -- buffer's directory, which is what makes those settings mean
+                -- anything. Add the argument only if you want to pin a style
+                -- regardless of whatever the project has.
+                prepend_args = {}
             }
-        }
+        },
+        -- Format on save, per filetype. This is the one place it is set, so
+        -- that it cannot disagree with formatters_by_ft above the way the
+        -- previous unconditional BufWritePre in config/options.lua did.
+        format_on_save = function(buf)
+            local conform = require("conform")
+            local fts = conform.list_formatters(buf)
+            -- Files with no formatter configured are left alone, which is what
+            -- keeps a save in a .md or .txt file from being rewritten.
+            return #fts > 0
+        end,
     }
 }, {
     "RedsXDD/neopywal.nvim",

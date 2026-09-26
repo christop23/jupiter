@@ -135,13 +135,10 @@ map_to_gtk_theme() {
         echo "Rosepine-Dark"
       fi
       ;;
-    "tokyo-night")
-      if [[ "$variation" == "light" ]]; then
-        echo "Tokyonight-Light"
-      else
-        echo "Tokyonight-Dark"
-      fi
-      ;;
+    # No tokyo-night arm. There is no wallpapers/Tokyo-Night directory and
+    # install.sh installs no Tokyonight GTK theme, so the branch could never be
+    # reached from a wallpaper and the names it emitted did not exist. It was
+    # also the one mapping with nothing in this repo to check it against.
     *)
       log_warn "Unknown theme: $theme_name, using default theme"
       if [[ "$variation" == "light" ]]; then
@@ -233,8 +230,13 @@ map_to_icon_theme() {
 detect_theme_from_wallpaper() {
   log_info "Detecting theme from current wallpaper directory"
 
-  local wallpaper_path
-  wallpaper_path=$(awww query 2> /dev/null | grep -oP '(?<=image: ).*' | head -n1 | tr -d '\n\r')
+  # A path given as an argument wins over asking awww. bgselector.sh has just
+  # chosen the wallpaper and knows exactly which one, and querying awww instead
+  # races the fade it is still in the middle of.
+  local wallpaper_path="${1:-}"
+  if [[ -z "$wallpaper_path" ]]; then
+    wallpaper_path=$(awww query 2> /dev/null | grep -oP '(?<=image: ).*' | head -n1 | tr -d '\n\r')
+  fi
 
   if [[ -z "$wallpaper_path" ]]; then
     die "No wallpaper detected from awww query"
@@ -259,6 +261,19 @@ detect_theme_from_wallpaper() {
 
   if [[ "$theme_name" == "osaka" ]]; then
     theme_name="solarized"
+  fi
+
+  # A wallpaper has to sit at <scheme>/<dark|light>/ to be recognisable, since
+  # the theme name is the grandparent directory and the variation is the parent.
+  #
+  # wallpapers/default.jpg sits at the top of the collection, so its grandparent
+  # is ~/Pictures and its parent is ~/Pictures/Wallpapers, which produced the
+  # theme "pictures" with the variation "wallpapers". Neither matched any arm of
+  # the case above, so it fell through to the default silently and then saved
+  # that pair as the state, which is a second way to make the next run skip.
+  if [[ "$variation" != "dark" && "$variation" != "light" ]]; then
+    # One die, because die exits.
+    die "Wallpaper is not in a <scheme>/<dark|light>/ directory: $wallpaper_path (variation '$variation', expected something like Wallpapers/Nord/Dark/<file>)"
   fi
 
   log_debug "Detected theme: $theme_name, variation: $variation"
@@ -671,8 +686,8 @@ main() {
   # Validate dependencies
   validate_dependencies "awww" "matugen" "jq" "sed" "grep" "head" "tr"
 
-  # Detect theme from current wallpaper
-  detect_theme_from_wallpaper
+  # Detect theme from the wallpaper, preferring one passed as an argument.
+  detect_theme_from_wallpaper "${1:-}"
 
   local detected_theme="${DETECTED_THEME:-}"
   local wallpaper_path="${WALLPAPER_PATH:-}"

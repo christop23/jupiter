@@ -104,7 +104,6 @@ Core Components
 
 Additional Tools
 
-    Editor: Neovim (preconfigured)
     File Manager: Thunar
     PDF Viewer: Zathura
     System Info: Fastfetch
@@ -167,7 +166,6 @@ Thanks to [vinceliuice](https://github.com/vinceliuice) and [Fausto-Korpsvart](h
 Every one of these is symlinked into `~/.config` by the installer, and each is
 listed in `install.sh` under `CONFIG_FOLDERS` or `CONFIG_FILES`:
 
-- Neovim (`~/.config/nvim`)
 - Vicinae, Waybar, Fish, Fastfetch, Mako, Alacritty, Starship
 - Zathura, Thunar, GTKLock, pavucontrol
 - Matugen (`~/.config/matugen`) and `~/.config/scripts`

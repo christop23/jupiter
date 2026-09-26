@@ -48,8 +48,11 @@ output_path = "~/.config/zathura/zathurarc"
 input_path = "templates/vicinae.toml"
 output_path = "~/.local/share/vicinae/themes/matugen.toml"
 
-# Pywal-schema JSON cache. Consumed by scripts/theme-sync.sh (niri
-# accent color) and by neopywal.nvim in nvim (use_palette = "pywal").
+# Pywal-schema JSON cache. Consumed by scripts/theme-sync.sh, for the niri accent
+# colour. Nothing else in this setup reads it. It is written to pywal's own cache
+# directory because that is the schema the name refers to, not because pywal is
+# installed: if you ever install and run it, it will overwrite this file and every
+# matugen-templated app will desync from niri with no warning.
 [templates.pywal_json]
 input_path = "templates/pywal-colors.json"
 output_path = "~/.cache/wal/colors.json"

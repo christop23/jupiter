@@ -53,7 +53,7 @@ SUDO_PID=""
 # Expected configuration folders in the repo
 readonly CONFIG_FOLDERS=(
   niri waybar fish fastfetch mako alacritty starship
-  nvim vicinae gtklock zathura matugen scripts
+  vicinae gtklock zathura matugen scripts
 )
 
 # Configurations that are a single file in the config directory rather than a
@@ -225,7 +225,7 @@ provider_recommendations() {
 
 # Official repository packages
 readonly PACMAN_PACKAGES=(
-  niri waybar fish fastfetch mako alacritty starship neovim eza
+  niri waybar fish fastfetch mako alacritty starship eza
   zathura zathura-pdf-mupdf ttf-jetbrains-mono-nerd ttf-nerd-fonts-symbols
   qt5-wayland qt6-wayland polkit-gnome unzip jq unrar 7zip man-db bat
   gtklock curl libnotify pavucontrol thunar awww matugen librewolf bottom
@@ -2440,7 +2440,7 @@ verify_all_binaries() {
   local missing_binaries=()
   local binaries_to_check=(
     niri waybar fish fastfetch mako alacritty starship
-    nvim vicinae gtklock zathura matugen awww librewolf btm
+    vicinae gtklock zathura matugen awww librewolf btm
   )
 
   for binary in "${binaries_to_check[@]}"; do

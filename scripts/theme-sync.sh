@@ -655,6 +655,61 @@ update_niri_config() {
   log_success "Niri config updated"
 }
 
+# Point gtklock at the current wallpaper.
+#
+# The stylesheet shipped in this repo set background-size, -repeat and -position
+# but no background-image, so those three described a picture that never arrived
+# and the lock screen was a flat colour. gtklock's man page is explicit that the
+# image goes in the CSS and that -b can be overridden by it, so this writes it
+# there rather than passing -b on every invocation, which would mean changing the
+# keybind in niri/config.kdl and the ExecStart in the generated unit as well.
+#
+# The file is regenerated whole rather than sed-patched, because a path with a
+# quote or a backslash in it -- neither exists in this collection, both are legal
+# in a filename -- cannot survive being matched against a regular expression and
+# written back. Quoting the url() and escaping those two characters is enough.
+#
+# It is a tracked file, so this leaves the checkout dirty in the same way the
+# matugen-generated alacritty/colors.toml, waybar/colors.css, mako/config and
+# zathura/zathurarc already do.
+update_gtklock_background() {
+  local -r wallpaper_path="${1:-}"
+  local -r style_file="$HOME/.config/gtklock/style.css"
+
+  if [[ -z "$wallpaper_path" || ! -f "$wallpaper_path" ]]; then
+    log_warn "No wallpaper to use for the lock screen, leaving ${style_file} alone"
+    return 1
+  fi
+
+  if [[ ! -f "$style_file" ]]; then
+    log_warn "gtklock style not found at ${style_file}, skipping"
+    return 1
+  fi
+
+  # Backslash and double quote are the two characters that need escaping inside a
+  # CSS double-quoted string. Everything else, spaces included, is literal.
+  local escaped="${wallpaper_path//\\/\\\\}"
+  escaped="${escaped//\"/\\\"}"
+
+  local tmp_file="${style_file}.tmp.$$"
+  {
+    printf '/* GTKLock stylesheet - written by scripts/theme-sync.sh on every\n'
+    printf ' * wallpaper change. The background-image line tracks the wallpaper;\n'
+    printf ' * edit the rest here and it will survive, but do not edit that line,\n'
+    printf ' * it is rewritten. */\n'
+    printf 'window {\n'
+    printf '   background-image: url("%s");\n' "$escaped"
+    printf '   background-size: cover;\n'
+    printf '   background-repeat: no-repeat;\n'
+    printf '   background-position: center;\n'
+    printf '}\n'
+  } > "$tmp_file" && mv -f "$tmp_file" "$style_file" \
+    || { rm -f "$tmp_file"; log_error "Could not write ${style_file}"; return 1; }
+
+  log_info "Lock screen background set to $(basename "$wallpaper_path")"
+  return 0
+}
+
 main() {
   log_info "Starting dynamic theme synchronization"
 
@@ -719,6 +774,8 @@ main() {
     fi
 
     update_niri_config
+    update_gtklock_background "$wallpaper_path" \
+      || log_warn "Lock screen background not updated."
 
     if command -v vicinae > /dev/null 2>&1; then
       vicinae theme set matugen || log_warn "Failed to set vicinae theme"

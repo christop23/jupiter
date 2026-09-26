@@ -993,7 +993,15 @@ choose_aur_helper() {
       return 0
     else
       warn "yay is installed but broken (likely due to pacman/libalpm upgrade). Reinstalling..."
-      sudo pacman -Rns yay yay-bin < /dev/tty 2>&1 | tee -a "${LOG_FILE}" || true
+      # Only the names pacman actually has. `yay` is a virtual provided by
+      # yay-bin, so naming both made pacman abort the whole removal with
+      # "target not found" and remove nothing, and the || true hid that, so
+      # the reinstall below then wrote over a package pacman thought was fine.
+      local -a stale_helpers=()
+      mapfile -t stale_helpers < <(pacman -Qq 2> /dev/null | grep -E '^yay(-bin)?$' || true)
+      if [[ ${#stale_helpers[@]} -gt 0 ]]; then
+        sudo pacman -Rns "${stale_helpers[@]}" < /dev/tty 2>&1 | tee -a "${LOG_FILE}" || true
+      fi
     fi
   fi
 
@@ -1035,7 +1043,15 @@ check_yay_linkage() {
   if command -v yay &> /dev/null; then
     if ldd "$(command -v yay)" | grep -q "not found"; then
       warn "Detected broken shared library linkage in yay. Reinstalling."
-      sudo pacman -Rns yay yay-bin < /dev/tty 2>&1 | tee -a "${LOG_FILE}" || true
+      # Only the names pacman actually has. `yay` is a virtual provided by
+      # yay-bin, so naming both made pacman abort the whole removal with
+      # "target not found" and remove nothing, and the || true hid that, so
+      # the reinstall below then wrote over a package pacman thought was fine.
+      local -a stale_helpers=()
+      mapfile -t stale_helpers < <(pacman -Qq 2> /dev/null | grep -E '^yay(-bin)?$' || true)
+      if [[ ${#stale_helpers[@]} -gt 0 ]]; then
+        sudo pacman -Rns "${stale_helpers[@]}" < /dev/tty 2>&1 | tee -a "${LOG_FILE}" || true
+      fi
       install_yay
     fi
   fi

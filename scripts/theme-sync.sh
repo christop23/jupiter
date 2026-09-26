@@ -311,7 +311,6 @@ set_ini_value() {
   local -r value="$4"
 
   [[ -f "$file" ]] || touch "$file"
-
   if grep -q "^\\[$section\\]" "$file"; then
     if grep -q "^$key=" "$file"; then
       sed -i "/^\\[$section\\]/,/^\\[/ s/^$key=.*/$key=$value/" "$file"
@@ -319,7 +318,12 @@ set_ini_value() {
       sed -i "/^\\[$section\\]/a $key=$value" "$file"
     fi
   else
-    printf '\\n[%s]\\n%s=%s\\n' "$section" "$key" "$value" >> "$file"
+    # Single backslashes on purpose. Quoted, '\\n' reaches printf as
+    # two characters: it prints one backslash and leaves the n alone, so every
+    # run appended a literal \n instead of a newline and the file ended up as
+    # one long line that GTK cannot parse. The sed patterns above get this right
+    # only because they are double quoted, where bash collapses \\ to \.
+    printf '\n[%s]\n%s=%s\n' "$section" "$key" "$value" >> "$file"
   fi
 }
 

@@ -428,8 +428,15 @@ manage_symlinks() {
   local -r gtk4_dir="$HOME/.config/gtk-4.0"
   mkdir -p "$gtk4_dir"
 
+  # matugen writes this one now, so a link left behind by an earlier run has to
+  # go before anything else touches the path. Writing to a symlink follows it,
+  # which would land in the theme's own stylesheet and gut it.
+  if [[ -L "$gtk4_dir/gtk.css" ]]; then
+    rm -f "$gtk4_dir/gtk.css" &&
+      log_info "Removed the gtk.css link, matugen owns that file now"
+  fi
+
   declare -A links=(
-    ["$gtk4_dir/gtk.css"]="gtk-4.0/gtk.css"
     ["$gtk4_dir/gtk-dark.css"]="gtk-4.0/gtk-dark.css"
     ["$gtk4_dir/assets"]="gtk-4.0/assets"
   )

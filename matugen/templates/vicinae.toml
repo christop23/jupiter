@@ -7,10 +7,15 @@ name = "Matugen Generated"
 description = "Dynamic theme generated from current wallpaper"
 <* if {{ is_dark_mode }} *>
 variant = "dark"
+inherits = "vicinae-dark"
 <* else *>
 variant = "light"
+inherits = "vicinae-light"
 <* endif *>
-inherits = "vicinae-dark"
+# inherits goes inside the conditional deliberately. An explicit inherits
+# overrides the base vicinae derives from variant, so with it outside, a light
+# wallpaper produced variant = "light" inheriting the dark base, and every key
+# this template does not set came out dark.
 
 # ============================================================================
 # Core Colors

@@ -2110,7 +2110,12 @@ install_gtk_themes() {
   fi
 
   if [[ ${#failed_themes[@]} -gt 0 ]]; then
-    warn "Failed to install ${#failed_themes[@]} GTK theme(s): ${failed_themes[*]}"
+    # "${failed_themes[*]}" alone joins with the first character of IFS, which
+    # line 4 sets to $'\n\t', so it printed one theme per line inside a single
+    # warn and, because log() uses $*, as a multi-line log entry.
+    local joined_failed_themes
+    joined_failed_themes="$(IFS=' ' ; echo "${failed_themes[*]}")"
+    warn "Failed to install ${#failed_themes[@]} GTK theme(s): ${joined_failed_themes}"
     warn "You can manually install these themes later if needed."
   fi
 
@@ -2181,7 +2186,11 @@ install_icon_themes() {
   fi
 
   if [[ ${#failed_icons[@]} -gt 0 ]]; then
-    warn "Failed to install ${#failed_icons[@]} icon theme(s): ${failed_icons[*]}"
+    # joined explicitly for the same reason as the themes above: [*] would
+    # otherwise join on newline.
+    local joined_failed_icons
+    joined_failed_icons="$(IFS=' ' ; echo "${failed_icons[*]}")"
+    warn "Failed to install ${#failed_icons[@]} icon theme(s): ${joined_failed_icons}"
     warn "You can manually install these icon themes later if needed."
   fi
 

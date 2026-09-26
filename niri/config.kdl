@@ -74,7 +74,7 @@ binds {
     // in the input block below hands the key back so this binding is the only
     // thing acting on it. If the key does not reach niri on your hardware, the
     // fallback is HandlePowerKey=suspend in logind.conf, which also does not lock.
-    XF86PowerOff                         { spawn-sh "~/.config/scripts/lock-and-suspend.sh"; }
+    XF86PowerOff                         hotkey-overlay-title="Suspend: lock, then sleep" { spawn-sh "$HOME/.config/scripts/lock-and-suspend.sh"; }
 
     // Application Shortcuts
     MOD+RETURN                          hotkey-overlay-title="Open Terminal: alacritty" { spawn-sh "alacritty"; }

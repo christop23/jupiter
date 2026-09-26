@@ -1681,15 +1681,12 @@ ask_for_provider() {
   PACMAN_TARGETS+=("${picked}")
   ASKED_VIRTUALS+="${virtual} "
 
-  # The pattern is the provider list as a regular expression, so the check after
-  # the install can name every provider of this virtual and not just the chosen
-  # one. The dots are escaped because these names go into a regex, not because
-  # a package name can be expected to carry one.
-  local pattern="" provider
-  for provider in "${providers[@]}"; do
-    pattern+="${pattern:+|}${provider//./\\.}"
-  done
-  RESOLVED_PROVIDERS+=("${virtual}|${picked}|(${pattern})")
+  # Recorded as virtual|answer, and only the answer. The check after the install
+  # used to be handed the provider list as a regular expression so it could name
+  # every provider rather than just the chosen one, but it now reads the real
+  # providers out of the sync databases, so the list is not needed here and a
+  # snapshot of it could only go stale.
+  RESOLVED_PROVIDERS+=("${virtual}|${picked}")
 
   msg "${virtual} -> ${picked}"
 }
@@ -1697,22 +1694,85 @@ ask_for_provider() {
 # Says out loud which provider of each virtual is actually installed, so a wrong
 # pick does not stay silent: the desktop still comes up and the affected feature
 # just quietly does not work.
+# Emits "virtual<TAB>provider" for every virtual that an installed package
+# provides, one pair per line, sorted. Read once by report_providers below.
 #
-# Arguments are virtual|expected provider|regular expression matching its
-# providers, one per argument. The expected provider is what the caller wants to
-# see: a recommendation for the ones this installer pinned, the person's own
-# choice for the ones resolve_virtual_providers asked about, since warning
+# This is the whole point of the function: the checks used to carry a
+# hand-written regular expression listing the providers, which is a snapshot of
+# one repository state and goes wrong in both directions at once. A provider
+# added since the pattern was written is invisible, so a virtual that is
+# satisfied looks unsatisfied; and a pattern listing several alternatives cannot
+# say which one won, so it reported the expected provider as installed when it
+# was merely present alongside the one that actually got chosen.
+#
+# The index comes from the same sync databases the analyzer reads, so it cannot
+# disagree with it, and pacman -Qq supplies the installed set, so a provider
+# that is not installed is not listed. `pacman -Qo` would be no use here: the
+# shared directories report every package on the system.
+installed_provider_index() {
+  local -a dbs=(/var/lib/pacman/sync/*.db)
+  local installed=""
+
+  if [[ ! -e "${dbs[0]}" ]]; then
+    return 0
+  fi
+
+  printf -v installed '%s ' $(pacman -Qq 2> /dev/null || true)
+
+  for db in "${dbs[@]}"; do
+    tar -xzOf "${db}" 2> /dev/null || true
+  done | awk -v installed="${installed}" '
+    # The installed set, as a lookup table. Without it flush() would skip every
+    # record, since the test is `name in isinstalled`.
+    BEGIN {
+      ni = split(installed, il, " ")
+      for (i = 1; i <= ni; i++) if (il[i] != "") isinstalled[il[i]] = 1
+    }
+    function trim(s) { gsub(/^[ \t]+|[ \t]+$/, "", s); return s }
+    function flush(   i, n) {
+      if (name == "" || !(name in isinstalled)) { name = ""; provs = ""; return }
+      n = split(provs, a, ",")
+      for (i = 1; i <= n; i++) {
+        if (a[i] == "") continue
+        print a[i] "\t" name
+      }
+      name = ""; provs = ""
+    }
+    # Dispatch is on the field name, and a record ends at the next %NAME% rather
+    # than at a blank line. The fields of one record are separated by blank
+    # lines and %PROVIDES% comes after %NAME%, so flushing on a blank would
+    # discard the name before the provides were read.
+    /^%NAME%$/      { flush(); sect = "NAME"; next }
+    /^%[A-Z]+%$/    { sect = $0; sub(/^%/, "", sect); sub(/%$/, "", sect); next }
+    {
+      if (sect == "NAME") { if (name == "") name = trim($0) }
+      else if (sect == "PROVIDES") {
+        line = $0; sub(/=.*$/, "", line); line = trim(line)
+        if (line != "") provs = (provs == "") ? line : provs "," line
+      }
+    }
+    END { flush() }
+  ' 2> /dev/null | sort -u || true
+}
+
+# Arguments are virtual|expected provider, one per argument, and the expected
+# provider is compared against what is actually installed rather than against a
+# pattern: a recommendation for the ones this installer pinned, and the person's
+# own choice for the ones resolve_virtual_providers asked about, since warning
 # someone about the answer they just gave would be pointless.
 report_providers() {
-  local entry virtual expected pattern found
+  local entry virtual expected found
+
+  # Built once for the whole table rather than per entry, because reading the
+  # sync databases is the expensive part.
+  local index
+  index="$(installed_provider_index)"
 
   for entry in "$@"; do
-    IFS='|' read -r virtual expected pattern <<< "${entry}"
+    IFS='|' read -r virtual expected <<< "${entry}"
 
-    # `pacman -Qo` is no use here: the shared directories report every package
-    # in the system. Matching the package list against the provider names is
-    # path independent and needs no extra tooling.
-    found="$(pacman -Qq 2> /dev/null | grep -E "^(${pattern})$" | tr '\n' ' ' || true)"
+    found="$(printf '%s\n' "${index}" | awk -F'\t' -v v="${virtual}" '$1 == v { print $2 }' | tr '\n' ' ' || true)"
+    found="${found% }"
 
     if [[ -z "${found}" ]]; then
       warn "No provider of '${virtual}' is installed, expected ${expected}."
@@ -1733,25 +1793,32 @@ report_providers() {
 # hint that an answer matters. So check afterwards which providers actually
 # landed and say so out loud.
 verify_virtual_providers() {
-  # virtual | expected provider | regular expression matching its providers.
-  # The list mirrors the recommendations in preview_virtual_providers, so a
-  # provider that is named there is also checked for here. The ones reached only
-  # from an AUR package are not in it: those are checked against the answers
-  # given, by the AUR step.
+  # virtual | expected provider. Two fields only, because report_providers reads
+  # the real provider list out of the sync databases rather than being handed a
+  # pattern to match; see installed_provider_index for why that matters. A
+  # hand-written pattern was a snapshot of one repository state and went wrong
+  # in both directions: a provider added later was invisible, and a pattern
+  # naming several alternatives could not say which one won, so it reported the
+  # expected provider as present when it was merely installed alongside the one
+  # that had actually been chosen.
+  #
+  # This mirrors the recommendations in preview_virtual_providers, so anything
+  # named there is checked here. The ones reached only from an AUR package are
+  # not in it: those are checked against the answers given, by the AUR step.
   local -a checks=(
-    "xdg-desktop-portal-impl|${PACMAN_PROVIDER_PORTAL}|xdg-desktop-portal-(cosmic|dde|gnome|gtk|hyprland|kde|lxqt|phosh|wlr|xapp)"
-    "jack|${PACMAN_PROVIDER_JACK}|(jack2|pipewire-jack)"
-    "ttf-font|${PACMAN_PROVIDER_FONT}|(gnu-free-fonts|noto-fonts|ttf-(bitstream-vera|croscore|dejavu|droid|ibm-plex|input|input-nerd|liberation|roboto))"
-    "tessdata|${PACMAN_PROVIDER_TESSDATA}|tesseract-data-.+"
-    "pipewire-session-manager|${PACMAN_PROVIDER_WIREPLUMBER}|(pipewire-media-session|wireplumber)"
+    "xdg-desktop-portal-impl|${PACMAN_PROVIDER_PORTAL}"
+    "jack|${PACMAN_PROVIDER_JACK}"
+    "ttf-font|${PACMAN_PROVIDER_FONT}"
+    "tessdata|${PACMAN_PROVIDER_TESSDATA}"
+    "pipewire-session-manager|${PACMAN_PROVIDER_WIREPLUMBER}"
   )
 
   # The opengl driver depends on whether the NVIDIA driver went in, so it is
   # appended here rather than baked into the table above.
   if [[ "${INSTALL_NVIDIA}" == "true" ]]; then
-    checks+=("opengl-driver|nvidia-utils|(mesa|mesa-amber|nvidia-utils)")
+    checks+=("opengl-driver|nvidia-utils")
   else
-    checks+=("opengl-driver|${PACMAN_PROVIDER_MESA}|(mesa|mesa-amber|nvidia-utils)")
+    checks+=("opengl-driver|${PACMAN_PROVIDER_MESA}")
   fi
 
   report_providers "${checks[@]}"

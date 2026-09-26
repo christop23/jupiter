@@ -2,6 +2,37 @@
 
 set -uo pipefail
 
+# One at a time. Two wallpaper changes in quick succession start two copies of
+# this script, and they were writing the same files: matugen wrote the same
+# template outputs while the other was midway through, and both ran sed -i
+# against the same ~/.config/niri/config.kdl. The interleaving is not visible
+# afterwards, it just leaves a config that matches neither wallpaper.
+#
+# The lock waits rather than giving up immediately, which is the behaviour that
+# does not lose the newer request. The second run holds the wallpaper the person
+# actually asked for, and the one already running is finishing an older one, so
+# exiting early would leave the older wallpaper's colours in place. Blocking
+# means the second run waits, then re-reads the state, finds it does not match
+# its own wallpaper, and themes that one instead. The timeout is there so a stale
+# lock from a killed run cannot block every later one forever.
+#
+# flock comes from util-linux, which is in the base system.
+readonly THEME_LOCK_FILE="${XDG_CACHE_HOME:-$HOME/.cache}/theme-sync.lock"
+
+acquire_lock() {
+  mkdir -p "$(dirname "$THEME_LOCK_FILE")" 2> /dev/null || true
+
+  exec 9> "$THEME_LOCK_FILE" 2> /dev/null || {
+    log_warn "Could not open ${THEME_LOCK_FILE}, continuing without a lock."
+    return 0
+  }
+
+  if ! flock -w 30 9; then
+    log_warn "Another theme sync is still running after 30s, giving up."
+    return 1
+  fi
+}
+
 sleep 0.8 # let awww set the wallpaper
 
 log_info() {
@@ -713,8 +744,14 @@ update_gtklock_background() {
 main() {
   log_info "Starting dynamic theme synchronization"
 
-  # Validate dependencies
+  # Before anything is read or written, so two invocations cannot interleave
+  # from here on. validate_dependencies first, so a run that is going to fail
+  # anyway does not sit in front of a good one.
   validate_dependencies "awww" "matugen" "jq" "sed" "grep" "head" "tr"
+
+  if ! acquire_lock; then
+    return 1
+  fi
 
   # Detect theme from the wallpaper, preferring one passed as an argument.
   detect_theme_from_wallpaper "${1:-}"

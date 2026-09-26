@@ -177,6 +177,16 @@ readonly AUR_PACKAGES=(
 #           KDE in with it. oo7 is a minimal provider with little use beyond
 #           it. All of them are offered, since a machine already using one, or
 #           a person who wants one, should not be second-guessed here.
+#   nodejs  nodejs                    3 providers, also wanted by an AUR
+#           package, and with no recommendation. vicinae-bin depends on nodejs
+#           directly, nodejs is a virtual, and its providers are nodejs-lts-iron,
+#           -jod and -krypton. So install_aur_packages asks this one, and a bare
+#           Enter takes the first alphabetically, which is the oldest LTS. That
+#           is the exact failure the rest of this list exists to prevent, and it
+#           is left that way here because which LTS a launcher should be built
+#           against is a preference rather than something this installer can
+#           infer. Add a PACMAN_PROVIDER_NODEJS and a line to
+#           provider_recommendations if you want a default.
 readonly PACMAN_PROVIDER_PORTAL="xdg-desktop-portal-gnome"
 readonly PACMAN_PROVIDER_JACK="pipewire-jack"
 readonly PACMAN_PROVIDER_WIREPLUMBER="wireplumber"

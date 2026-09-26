@@ -495,8 +495,18 @@ check_sudo() {
   fi
 
   (
+    # -n so this can never prompt: a background job that inherits the script's
+    # stdin would read a line of the script itself when the timestamp expires,
+    # which is the failure the usermod-instead-of-chsh change exists to avoid.
+    # It also exits rather than looping once sudo is no longer available.
+    #
+    # trap - ERR because set -E makes the ERR trap inherit into this subshell,
+    # and without sudo a failing `sudo -n -v` would otherwise fire the trap
+    # here, printing an error about line 497 and running offer_restore on a
+    # read < /dev/tty inside a background process.
+    trap - ERR
     while true; do
-      sudo -v
+      sudo -n -v || exit 0
       sleep 50
     done
   ) &

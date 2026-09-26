@@ -89,12 +89,59 @@ readonly AUR_PACKAGES=(
   vicinae-bin
 )
 
+# Packages that exist only to satisfy a virtual dependency. Naming the provider
+# is the only way to stop pacman opening its provider picker, and that picker is
+# unusable on a first boot: the console is 80x24 with no display server, so a
+# long list scrolls off the top and the numbers you need to type are the ones
+# you cannot see. There is no pacman.conf setting for this, and --noconfirm
+# would pick the first entry alphabetically, which for the portal is the
+# xdg-desktop-portal-cosmic backend, which niri cannot screencast through.
+#
+#   portal   xdg-desktop-portal-impl   10 providers, wanted by niri.
+#           niri does its monitor and window screencasting through the gnome
+#           portal, so that is the correct backend here, not wlr.
+#   jack     jack, libjack.so            2 and 4 providers, wanted by waybar.
+#           pipewire-jack because this stack is PipeWire based.
+#   session  pipewire-session-manager    3 providers, reached through
+#           pipewire-jack, so pinning jack on its own only moves the question.
+#           wireplumber over the other two: pipewire-media-session is marked
+#           deprecated and conflicts with wireplumber in both directions, so
+#           they cannot be weighed against each other, and waybar already
+#           requires libwireplumber, so this adds nothing to the desktop. The
+#           third provider, a package of the same name, is omitted from the
+#           report because pacman never asks about a real package it already
+#           matched by name.
+#   font     ttf-font                  11 providers, wanted by librewolf,
+#           which needs any TrueType font present and nothing more specific.
+#           noto-fonts is the pick because its script coverage suits a browser,
+#           not because the dependency calls for it: at 112MB installed it is
+#           the second heaviest of the eleven, and ttf-dejavu at 10MB satisfies
+#           the virtual just as well. Swap it if disk matters more than CJK,
+#           emoji and RTL rendering. Nothing else in this list already provides
+#           ttf-font, though ttf-nerd-fonts-symbols is close: it provides
+#           ttf-font-nerd, which is a different virtual.
+#   tessdata tessdata                 128 providers, wanted by tesseract, which
+#           comes in via zathura-pdf-mupdf -> libmupdf. This is the worst
+#           offender by far: 128 entries cannot be read on any terminal.
+#   opengl   opengl-driver               3 providers. nvidia-utils covers it
+#           when the NVIDIA driver is installed, otherwise mesa does, and
+#           that choice is made per run in build_pacman_targets.
+readonly PACMAN_PROVIDER_PORTAL="xdg-desktop-portal-gnome"
+readonly PACMAN_PROVIDER_JACK="pipewire-jack"
+readonly PACMAN_PROVIDER_WIREPLUMBER="wireplumber"
+readonly PACMAN_PROVIDER_FONT="noto-fonts"
+readonly PACMAN_PROVIDER_TESSDATA="tesseract-data-eng"
+readonly PACMAN_PROVIDER_MESA="mesa"
+
 # Official repository packages
 readonly PACMAN_PACKAGES=(
   niri waybar fish fastfetch mako alacritty starship neovim eza
   zathura zathura-pdf-mupdf ttf-jetbrains-mono-nerd ttf-nerd-fonts-symbols
   qt5-wayland qt6-wayland polkit-gnome unzip jq unrar 7zip man-db bat
   gtklock curl libnotify pavucontrol thunar awww matugen librewolf bottom
+  "${PACMAN_PROVIDER_PORTAL}" "${PACMAN_PROVIDER_JACK}"
+  "${PACMAN_PROVIDER_WIREPLUMBER}" "${PACMAN_PROVIDER_FONT}"
+  "${PACMAN_PROVIDER_TESSDATA}"
 )
 
 # ==========================
@@ -885,14 +932,428 @@ check_yay_linkage() {
 }
 
 install_pacman_packages() {
+  build_pacman_targets
+
+  analyze_virtual_providers
+  preview_virtual_providers
+  resolve_virtual_providers
+
   info "Installing official repository packages..."
   info "This may take several minutes..."
 
-  if sudo pacman -S --needed "${PACMAN_PACKAGES[@]}" < /dev/tty 2>&1 | tee -a "${LOG_FILE}"; then
+  if sudo pacman -S --needed "${PACMAN_TARGETS[@]}" < /dev/tty 2>&1 | tee -a "${LOG_FILE}"; then
     msg "Official packages installed successfully."
   else
     fatal "Failed to install official repository packages."
   fi
+
+  verify_virtual_providers
+}
+
+# The exact list handed to pacman. It is more than PACMAN_PACKAGES because two
+# entries depend on earlier decisions. mesa is the opengl driver for the runs
+# where the user declined the NVIDIA driver, and it must be left out when
+# NVIDIA is installed: nvidia-utils already provides that virtual, so naming
+# both would not remove the choice, it would only move it. The NVIDIA and
+# greeter packages are folded in for the preview even though each has its own
+# pacman call, because a package named in any of those transactions is a
+# decided target and that is exactly what the preview needs to know.
+declare -a PACMAN_TARGETS=()
+
+build_pacman_targets() {
+  PACMAN_TARGETS=("${PACMAN_PACKAGES[@]}")
+
+  if [[ "${INSTALL_NVIDIA}" == "true" ]]; then
+    PACMAN_TARGETS+=("${NVIDIA_DRIVER}" "${NVIDIA_COMMON_PACKAGES[@]}")
+    if [[ -n "${NVIDIA_HEADERS}" ]]; then
+      PACMAN_TARGETS+=("${NVIDIA_HEADERS}")
+    fi
+  else
+    PACMAN_TARGETS+=("${PACMAN_PROVIDER_MESA}")
+  fi
+
+  if [[ "${INSTALL_GREETER}" == "true" ]]; then
+    PACMAN_TARGETS+=("${GREETER_PACKAGES[@]}")
+  fi
+}
+
+# Walks the sync databases and reports every dependency that has more than one
+# provider, before pacman gets the chance to ask about one of them. On a first
+# boot the console is 80x24 and a long list scrolls off the top, so answering
+# the real prompt means guessing; this makes the whole decision visible up
+# front, with the entry this installer wants marked.
+# Fills PROVIDER_REPORT with the current analysis of PACMAN_TARGETS. Split out
+# of the preview so the interactive resolver can re-run it after each answer
+# without duplicating the analyzer.
+#
+# Reads the databases straight off disk rather than shipping a snapshot, so
+# the answer reflects the mirrors as they are now. Nothing is extracted: the
+# tar streams to stdout and one awk pass indexes all ~15k records in well
+# under a second.
+#
+# Emits one tab separated line per multi-provider dependency:
+#   AMB <virtual> <needed-by> <recommendation|-> <pinned|open> <provider>...
+# and a trailing COUNT line. "pinned" means an explicit target already
+# provides it, which is what stops pacman asking.
+analyze_virtual_providers() {
+  local program='
+  function flush(   a, i, n) {
+    if (name == "") return
+    if (deps != "") depsby[name] = deps
+    n = split(provs, a, ",")
+    for (i = 1; i <= n; i++) {
+      if (a[i] == "") continue
+      provby[a[i]] = (a[i] in provby) ? provby[a[i]] "," name : name
+    }
+    if (name in isexplicit) {
+      satisfied[name] = 1
+      for (i = 1; i <= n; i++) if (a[i] != "") satisfied[a[i]] = 1
+    }
+    name = ""; provs = ""; deps = ""; sect = ""
+  }
+  function trim(s) { gsub(/^[ \t]+|[ \t]+$/, "", s); return s }
+  # libalpm filters providers by the architecture of the requiring package, so a
+  # libfoo.so whose candidates differ only by the multilib prefix is never a
+  # real choice and would only add noise here.
+  function multilib_only(   i, n, s32, s64) {
+    if (d !~ /^lib.*\.so$/) return 0
+    n = split(provby[d], pl, ",")
+    for (i = 1; i <= n; i++) { if (pl[i] ~ /^lib32-/) s32 = 1; else s64 = 1 }
+    return (s32 && s64)
+  }
+  BEGIN {
+    FS = "\n"; total = 0; open = 0
+    nt = split(targets, tl, " ")
+    for (i = 1; i <= nt; i++) if (tl[i] != "") isexplicit[tl[i]] = 1
+  }
+  /^%NAME%$/ { flush(); sect = "NAME"; next }
+  /^%[A-Z]+%$/ { sect = $0; sub(/^%/, "", sect); sub(/%$/, "", sect); next }
+  {
+    if (sect == "NAME") { if (name == "") name = trim($0) }
+    else if (sect == "PROVIDES") {
+      line = $0; sub(/=.*$/, "", line); line = trim(line)
+      if (line != "") provs = (provs == "" ? line : provs "," line)
+    }
+    else if (sect == "DEPENDS") {
+      line = $0; sub(/:.*$/, "", line); sub(/[<>=].*$/, "", line); line = trim(line)
+      if (line != "") deps = (deps == "" ? line : deps "," line)
+    }
+  }
+  END {
+    flush()
+    nrec = split(recs, r, ",")
+    for (i = 1; i <= nrec; i++) {
+      p = index(r[i], "=")
+      if (p > 0) recfor[substr(r[i], 1, p - 1)] = substr(r[i], p + 1)
+    }
+    nt = split(targets, tl, " ")
+    for (i = 1; i <= nt; i++) {
+      if (tl[i] == "" || (tl[i] in seen_name)) continue
+      seen_name[tl[i]] = 1; q[++nq] = tl[i]
+    }
+    head = 1
+    while (head <= nq) {
+      cur = q[head++]
+      if (!(cur in depsby)) continue
+      nd = split(depsby[cur], dl, ",")
+      for (j = 1; j <= nd; j++) {
+        d = dl[j]
+        if (d == "" || (d in seen_name)) continue
+        np = (d in provby) ? split(provby[d], pl, ",") : 0
+        if (np == 0) continue
+        seen_name[d] = 1
+        if (np > 1 && !multilib_only()) {
+          total++
+          state = (d in satisfied) ? "pinned" : "open"
+          if (state == "open") open++
+          rec = (d in recfor) ? recfor[d] : "-"
+          line = "AMB\t" d "\t" cur "\t" rec "\t" state
+          for (k = 1; k <= np; k++) line = line "\t" pl[k]
+          print line
+        }
+        chosen = (d in depsby) ? d : pl[1]
+        if ((chosen in depsby) && !(chosen in seen_pkg)) {
+          seen_pkg[chosen] = 1; q[++nq] = chosen
+        }
+      }
+    }
+    print "COUNT\t" total "\t" open
+  }'
+
+  local -a dbs=(/var/lib/pacman/sync/*.db)
+  if [[ ! -e "${dbs[0]}" ]]; then
+    warn "No pacman sync databases found, skipping the provider preview."
+    PROVIDER_REPORT=""
+    return 0
+  fi
+
+  # IFS is newline and tab in this script, so join by hand for the -v argument.
+  local targets=""
+  printf -v targets '%s ' "${PACMAN_TARGETS[@]}"
+
+  local recs="xdg-desktop-portal-impl=${PACMAN_PROVIDER_PORTAL}"
+  recs+=",jack=${PACMAN_PROVIDER_JACK}"
+  recs+=",pipewire-session-manager=${PACMAN_PROVIDER_WIREPLUMBER}"
+  recs+=",ttf-font=${PACMAN_PROVIDER_FONT}"
+  recs+=",tessdata=${PACMAN_PROVIDER_TESSDATA}"
+  recs+=",greetd-greeter=greetd-tuigreet"
+  if [[ "${INSTALL_NVIDIA}" == "true" ]]; then
+    recs+=",opengl-driver=nvidia-utils"
+  else
+    recs+=",opengl-driver=${PACMAN_PROVIDER_MESA}"
+  fi
+
+  # `|| true` so a missing tar or awk degrades to no report instead of
+  # aborting the install.
+  PROVIDER_REPORT="$(for db in "${dbs[@]}"; do
+    tar -xzOf "${db}" 2> /dev/null || true
+  done | awk -v targets="${targets}" -v recs="${recs}" "${program}")" || true
+}
+
+# Tab separated analysis of the current target list, refreshed by
+# analyze_virtual_providers. Empty when the sync databases are unreadable.
+PROVIDER_REPORT=""
+
+# Walks the sync databases and reports every dependency that has more than one
+# provider, before pacman gets the chance to ask about one of them. On a first
+# boot the console is 80x24 and a long list scrolls off the top, so answering
+# the real prompt means guessing; this makes the whole decision visible up
+# front, with the entry this installer wants marked.
+preview_virtual_providers() {
+  local report="${PROVIDER_REPORT}"
+
+  if [[ -z "${report}" ]]; then
+    return 0
+  fi
+
+  printf "\n"
+  printf "${BOLD}Dependencies that have more than one provider${NC}\n"
+  printf "  ${CYAN}pacman asks about these one at a time. On an 80x24 console the\n"
+  printf "  list scrolls off the top, so you are asked below instead, with the\n"
+  printf "  same numbering and the recommendation marked.${NC}\n"
+  printf "\n"
+
+  local line virtual needed_by rec provider
+  local -a fields
+  local -i number
+  local -i total=0 open_count=0
+  while IFS= read -r line; do
+    if [[ -z "${line}" ]]; then
+      continue
+    fi
+    IFS=$'\t' read -r -a fields <<< "${line}"
+
+    if [[ "${fields[0]}" == "COUNT" ]]; then
+      total="${fields[1]}"
+      open_count="${fields[2]}"
+      continue
+    fi
+
+    # fields[4] is the pinned/open state, which every row is now asked about
+    # regardless of, so it is not read here.
+    virtual="${fields[1]}"
+    needed_by="${fields[2]}"
+    rec="${fields[3]}"
+
+    printf "  ${BOLD}%s${NC}  ${CYAN}(needed by %s)${NC}\n" "${virtual}" "${needed_by}"
+    number=0
+    for provider in "${fields[@]:5}"; do
+      number+=1
+      if [[ "${provider}" == "${rec}" ]]; then
+        printf "     %2d) %s  ${GREEN}<- recommended${NC}\n" "${number}" "${provider}"
+      else
+        printf "     %2d) %s\n" "${number}" "${provider}"
+      fi
+    done
+    printf "\n"
+  done <<< "${report}"
+
+  if [[ "${open_count}" -eq 0 ]]; then
+    msg "${total} ambiguous dependencies, every one has an installer default."
+  else
+    warn "${total} ambiguous dependencies, ${open_count} with no default. Marked above."
+  fi
+  printf "\n"
+}
+
+# Asks about every multi-provider dependency, and appends the answer to the
+# target list so the install itself never blocks. The question is asked here
+# rather than left to pacman because pacman cannot show the list properly on a
+# first boot, and because the answer can be acted on: a chosen provider is
+# just another explicit target.
+#
+# Every one is asked, including the ones the list above already pins. A
+# recommendation is a default, not a decision: the pinned entries are
+# reasonable readings of what this desktop wants, but the person running the
+# install is the one who knows whether they want the wlr portal instead of the
+# gnome one, or a lighter font package. Each prompt shows the recommendation
+# marked and takes it on a bare Enter, so the common case stays a single key
+# press while overriding stays possible.
+resolve_virtual_providers() {
+  local -i round
+  local tab=$'\t'
+  # Virtuals already put to the user. Answering one makes it pinned rather
+  # than open, but it stays in the report, so without this the loop would ask
+  # the same question five times.
+  local -A asked=()
+
+  # An answer can pull in packages that are ambiguous in their own right, the
+  # way choosing pipewire-jack surfaces pipewire-session-manager, so the
+  # analysis is repeated to catch the follow-up rows. The bound is a guard
+  # against a pathological mirror rather than an expected exit.
+  for (( round = 1; round <= 5; round++ )); do
+    local -a pending_rows=()
+    local line
+    local -a fields
+
+    while IFS= read -r line; do
+      if [[ -z "${line}" ]]; then
+        continue
+      fi
+      IFS=$'\t' read -r -a fields <<< "${line}"
+      # fields is  <kind> <virtual> <needed-by> <rec> <state> <providers...>
+      # so the providers start at index 5. Storing the line with the leading
+      # "AMB\t" already removed keeps the slicing in ask_for_provider readable.
+      #
+      # The removal uses a literal tab assigned to a variable rather than
+      # $'\t' inline: nesting $'...' inside ${var#...} inside double quotes is
+      # a parse error in bash when it appears in an array assignment.
+      if [[ "${fields[0]}" == "AMB" && -z "${asked[${fields[1]}]:-}" ]]; then
+        pending_rows+=("${line#*"${tab}"}")
+      fi
+    done <<< "${PROVIDER_REPORT}"
+
+    if [[ ${#pending_rows[@]} -eq 0 ]]; then
+      if (( round > 1 )); then
+        msg "Provider choices settled after $((round - 1)) round(s)."
+      fi
+      return 0
+    fi
+
+    if (( round == 1 )); then
+      printf "\n"
+      printf "${BOLD}Choosing providers${NC}\n"
+      printf "  ${CYAN}Each of these has more than one provider. The recommendation is\n"
+      printf "  marked and taken on a bare Enter; pick a number to override it.\n"
+      printf "  ${CYAN}Answering here means pacman never stops to ask during the install.${NC}\n"
+      printf "\n"
+    fi
+
+    local row
+    for row in "${pending_rows[@]}"; do
+      IFS=$'\t' read -r -a fields <<< "${row}"
+      asked["${fields[0]}"]=1
+      ask_for_provider "${fields[@]}"
+    done
+
+    analyze_virtual_providers
+  done
+
+  # Reached only by exhausting the loop: settling returns from inside it.
+  warn "Stopped after 5 rounds with ${#asked[@]} chosen. See the list above."
+}
+
+# Prints one numbered provider list and reads the choice, then appends the
+# chosen package to PACMAN_TARGETS.
+#
+# Takes the fields of one AMB row in order: virtual, the package that needs
+# it, the recommendation, the state, then the providers. The state is skipped
+# rather than named because the providers start after it.
+ask_for_provider() {
+  local virtual="$1" needed_by="$2" rec="$3" state="$4"
+  shift 4
+  local -a providers=("$@")
+
+  local -i count=${#providers[@]}
+  local -i default=1 number
+  local choice=""
+
+  printf "\n"
+  if [[ "${state}" == "pinned" ]]; then
+    printf "  ${BOLD}%s${NC}  ${CYAN}(needed by %s, installer default below)${NC}\n" \
+      "${virtual}" "${needed_by}"
+  else
+    printf "  ${BOLD}%s${NC}  ${CYAN}(needed by %s)${NC}\n" "${virtual}" "${needed_by}"
+  fi
+
+  for (( number = 1; number <= count; number++ )); do
+    if [[ "${providers[number - 1]}" == "${rec}" ]]; then
+      default=number
+      printf "     %2d) %s  ${GREEN}<- recommended${NC}\n" "${number}" "${providers[number - 1]}"
+    else
+      printf "     %2d) %s\n" "${number}" "${providers[number - 1]}"
+    fi
+  done
+
+  # `|| true` so a closed stdin takes the recommendation rather than tripping
+  # set -e and aborting the install.
+  if ! read -r -p "     Provider? [1-${count}, default ${default}]: " choice < /dev/tty; then
+    printf "\n"
+    warn "No input available, taking ${providers[default - 1]}."
+    choice=""
+  else
+    printf "\n"
+  fi
+
+  if [[ -z "${choice}" ]]; then
+    choice="${default}"
+  elif [[ ! "${choice}" =~ ^[0-9]+$ ]] ||
+    (( choice < 1 || choice > count )); then
+    warn "'${choice}' is not one of 1-${count}, taking ${providers[default - 1]}."
+    choice="${default}"
+  fi
+
+  local picked="${providers[choice - 1]}"
+  PACMAN_TARGETS+=("${picked}")
+  msg "${virtual} -> ${picked}"
+}
+
+# Pinning the providers above removes today's prompts, but it cannot cover
+# every virtual a future package release might add, and the picker gives no
+# hint that an answer matters. A wrong pick is silent: the desktop still comes
+# up, screen sharing and OCR just quietly do not work. So check afterwards which
+# providers actually landed and say so out loud.
+verify_virtual_providers() {
+  # virtual | expected provider | regular expression matching its providers.
+  # The list mirrors the recommendations in preview_virtual_providers, so a
+  # provider that is named there is also checked for here.
+  local -a checks=(
+    "xdg-desktop-portal-impl|${PACMAN_PROVIDER_PORTAL}|xdg-desktop-portal-(cosmic|dde|gnome|gtk|hyprland|kde|lxqt|phosh|wlr|xapp)"
+    "jack|${PACMAN_PROVIDER_JACK}|(jack2|pipewire-jack)"
+    "ttf-font|${PACMAN_PROVIDER_FONT}|(gnu-free-fonts|noto-fonts|ttf-(bitstream-vera|croscore|dejavu|droid|ibm-plex|input|input-nerd|liberation|roboto))"
+    "tessdata|${PACMAN_PROVIDER_TESSDATA}|tesseract-data-.+"
+    "pipewire-session-manager|${PACMAN_PROVIDER_WIREPLUMBER}|(pipewire-media-session|wireplumber)"
+  )
+
+  # The opengl driver depends on whether the NVIDIA driver went in, so it is
+  # appended here rather than baked into the table above.
+  if [[ "${INSTALL_NVIDIA}" == "true" ]]; then
+    checks+=("opengl-driver|nvidia-utils|(mesa|mesa-amber|nvidia-utils)")
+  else
+    checks+=("opengl-driver|${PACMAN_PROVIDER_MESA}|(mesa|mesa-amber|nvidia-utils)")
+  fi
+
+  local entry virtual expected pattern found
+  for entry in "${checks[@]}"; do
+    IFS='|' read -r virtual expected pattern <<< "${entry}"
+
+    # `pacman -Qo` is no use here: the shared directories report every package
+    # in the system. Matching the package list against the provider names is
+    # path independent and needs no extra tooling.
+    found="$(pacman -Qq 2> /dev/null | grep -E "^(${pattern})$" | tr '\n' ' ' || true)"
+
+    if [[ -z "${found}" ]]; then
+      warn "No provider of '${virtual}' is installed, expected ${expected}."
+      continue
+    fi
+
+    if [[ " ${found} " == *" ${expected} "* ]]; then
+      msg "${virtual} -> ${expected}"
+    else
+      warn "${virtual} resolved to ${found}instead of ${expected}."
+      info "Install ${expected} and remove the others if this feature misbehaves."
+    fi
+  done
 }
 
 install_aur_packages() {

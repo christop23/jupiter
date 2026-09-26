@@ -98,10 +98,22 @@ send_notification() {
 }
 
 # --- Configuration ---
-readonly SCRIPT_NAME="${0##*/}"
-readonly WALLPAPERS_DIR="$HOME/Pictures/Wallpapers"
-readonly DEFAULT_GTK_THEME="Colloid-Dark"
-readonly DEFAULT_ICON_THEME="Colloid-Dark"
+# Four constants that used to be here are gone, all of them unreferenced:
+#
+#   SCRIPT_NAME          the log functions print a timestamp and their arguments
+#                        and never named the script
+#   DEFAULT_GTK_THEME    superseded by map_to_gtk_theme, which derives the theme
+#                        from the wallpaper's scheme directory instead of
+#                        falling back to a fixed name
+#   DEFAULT_ICON_THEME   the fallback for a third parameter to set_gtk_theme that
+#                        no call site passed; that parameter only existed to feed
+#                        update_xsettingsd
+#   WALLPAPERS_DIR       theme-sync never scanned a wallpapers directory. It asks
+#                        awww for the current wallpaper and takes the scheme
+#                        directory from that path's parent, so it has no
+#                        directory to know about. bgselector.sh has its own
+#                        WALL_DIR defaulting to $HOME/Pictures/Wallpapers and
+#                        still does, which is where the path is still meaningful.
 readonly THEME_STATE_FILE="$HOME/.cache/theme-sync-state"
 
 # Get theme based on directory and variation
@@ -381,25 +393,6 @@ save_theme_state() {
   log_info "Saved theme state: $theme ($variation)"
 }
 
-update_xsettingsd() {
-  local -r theme="$1"
-  local -r icon_theme="$2"
-  local -r config_file="$HOME/.config/xsettingsd/xsettingsd.conf"
-
-  # Create directory if it doesn't exist
-  mkdir -p "$(dirname "$config_file")"
-
-  # Check if file exists, create it with proper format if it doesn't
-  if [[ ! -f "$config_file" ]]; then
-    printf 'Net/ThemeName "%s"
-Net/IconThemeName "%s"
-' "$theme" "$icon_theme" > "$config_file"
-  else
-    sed -i "s/Net\/ThemeName \".*\"/Net\/ThemeName \"$theme\"/; s/Net\/IconThemeName \".*\"/Net\/IconThemeName \"$icon_theme\"/" "$config_file" 2> /dev/null ||
-      log_warn "Failed to update xsettingsd config for theme name"
-  fi
-}
-
 update_gtk_settings() {
   local -r gtk_theme="$1"
   local -r variation="$2"
@@ -420,20 +413,24 @@ update_gtk_settings() {
     }
   fi
 
-  # Force reload of GTK settings for running applications
-  if command -v dbus-send > /dev/null 2>&1; then
-    dbus-send --session --dest=org.gtk.Settings --type=method_call \
-      /org/gtk/Settings org.gtk.Settings.NotifyThemeChange 2> /dev/null || true
-  fi
-
-  # Reload xsettingsd if running
-  if command -v pgrep > /dev/null 2>&1 && command -v pkill > /dev/null 2>&1; then
-    if pgrep -x xsettingsd > /dev/null; then
-      pkill -HUP xsettingsd
-    fi
-  else
-    log_warn "pgrep/pkill not available, skipping xsettingsd reload"
-  fi
+  # Two "reload" mechanisms used to follow this and both are gone.
+  #
+  # dbus-send at org.gtk.Settings, for NotifyThemeChange: there is no such
+  # service. busctl says "The name is not activatable" and no .service file for
+  # it exists anywhere, so the call could never do anything. dbus-send exits 0
+  # for it regardless -- it reports 0 even for a destination that does not exist
+  # at all -- so the 2> /dev/null and the || true were hiding a failure that
+  # dbus-send never surfaced.
+  #
+  # pkill -HUP xsettingsd: xsettingsd is not installed and not running, and is
+  # an X11 mechanism besides, so there was never anything to signal. The else
+  # arm around it warned about missing pgrep/pkill, which is a confusing thing
+  # to say about a machine that has both and has no use for either.
+  #
+  # Nothing replaces them. GTK reads the theme through GSettings, so a running
+  # application picks the new value up on its own; anything already open that
+  # cached the old one is a case for restarting it, not for a signal nobody
+  # implements.
 }
 
 manage_symlinks() {
@@ -477,20 +474,32 @@ manage_symlinks() {
   )
 
   # Create symlinks
+  #
+  # -n is not optional. Without it, ln dereferences a symlink whose target is a
+  # directory and creates the new link *inside* that directory instead of
+  # replacing it, so the link keeps pointing at the old theme and a stray
+  # <theme>/gtk-4.0/assets/assets is left behind pointing at the new one. That
+  # is not hypothetical: it had happened here, leaving ~/.config/gtk-4.0/assets
+  # on Osaka while gtk-dark.css had moved to Colloid, so GTK4 was drawing
+  # Colloid's stylesheet with Osaka's icons. Reproduced in a scratch tree to
+  # confirm the mechanism before changing this line.
   for link in "${!links[@]}"; do
     local target="$target_dir/${links[$link]}"
     [[ -e "$target" ]] || continue
 
     mkdir -p "$(dirname "$link")"
-    ln -sf "$target" "$link" && log_info "Created symlink: ${link##*/}"
+    ln -sfn "$target" "$link" && log_info "Created symlink: ${link##*/}"
   done
 }
 
 set_gtk_theme() {
   local -r gtk_theme="$1"
   local -r variation="${2:-dark}"
-  local -r icon_theme="${3:-$DEFAULT_ICON_THEME}"
 
+  # No icon_theme parameter. It used to be the third one, and existed only to
+  # hand update_xsettingsd something to write; set_icon_theme is called
+  # alongside this and sets the icon theme through gsettings, which is the
+  # backend that is actually read.
   log_info "Setting GTK theme to: $gtk_theme"
 
   # Check if theme directory exists
@@ -524,7 +533,6 @@ set_gtk_theme() {
   # groups, one of which nothing could ever update again.
   update_gtk_settings "$gtk_theme" "$variation"
   manage_symlinks "$gtk_theme"
-  update_xsettingsd "$gtk_theme" "$icon_theme"
 
   log_success "GTK theme set to: $gtk_theme"
 }
@@ -763,7 +771,7 @@ main() {
 
   # Only apply themes if the wallpaper, theme or variation changed
   if [[ $theme_changed -eq 1 ]]; then
-    set_gtk_theme "$gtk_theme" "$wallpaper_variation" "$icon_theme"
+    set_gtk_theme "$gtk_theme" "$wallpaper_variation"
     set_icon_theme "$icon_theme"
 
     # The state is only saved once the colours are actually known to be new.

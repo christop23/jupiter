@@ -974,14 +974,19 @@ install_pacman_packages() {
   verify_virtual_providers
 }
 
-# The exact list handed to pacman. It is more than PACMAN_PACKAGES because two
-# entries depend on earlier decisions. mesa is the opengl driver for the runs
+# The exact list handed to pacman. It is more than PACMAN_PACKAGES because one
+# entry depends on an earlier decision. mesa is the opengl driver for the runs
 # where the user declined the NVIDIA driver, and it must be left out when
 # NVIDIA is installed: nvidia-utils already provides that virtual, so naming
-# both would not remove the choice, it would only move it. The NVIDIA and
-# greeter packages are folded in for the preview even though each has its own
-# pacman call, because a package named in any of those transactions is a
+# both would not remove the choice, it would only move it. The NVIDIA packages
+# are folded in for the preview even though configure_nvidia installed them with
+# its own pacman call, because a package named in any of those transactions is a
 # decided target and that is exactly what the preview needs to know.
+#
+# The greeter packages are deliberately not folded in, and must not be: the
+# greeter is only configured at the end of the run and is not installed until the
+# person running this has said yes to it, so naming it here would put a login
+# greeter on a machine nobody asked for one on.
 declare -a PACMAN_TARGETS=()
 
 build_pacman_targets() {
@@ -994,10 +999,6 @@ build_pacman_targets() {
     fi
   else
     PACMAN_TARGETS+=("${PACMAN_PROVIDER_MESA}")
-  fi
-
-  if [[ "${INSTALL_GREETER}" == "true" ]]; then
-    PACMAN_TARGETS+=("${GREETER_PACKAGES[@]}")
   fi
 
   drop_installed_targets
@@ -1178,7 +1179,9 @@ analyze_virtual_providers() {
   recs+=",pipewire-session-manager=${PACMAN_PROVIDER_WIREPLUMBER}"
   recs+=",ttf-font=${PACMAN_PROVIDER_FONT}"
   recs+=",tessdata=${PACMAN_PROVIDER_TESSDATA}"
-  recs+=",greetd-greeter=greetd-tuigreet"
+  # greetd-greeter has no entry here, and does not need one: the greeter is not
+  # among the targets walked below, so the question never comes up here, and
+  # configure_greeter names greetd-tuigreet in the call that installs it.
   if [[ "${INSTALL_NVIDIA}" == "true" ]]; then
     recs+=",opengl-driver=nvidia-utils"
   else
@@ -1545,6 +1548,15 @@ configure_greeter() {
     return 0
   fi
 
+  # greetd 0.10.3 depends on the greetd-greeter virtual as well as on
+  # greetd-agreety by name, so this call is where pacman would open a provider
+  # picker: three packages provide the virtual, greetd-agreety, greetd-regreet
+  # and this one. Naming greetd-tuigreet on the command line is what settles it.
+  # Keep it, and keep the pair in one call: a bare `pacman -S greetd` here would
+  # ask. This is the one provider in the installer that is named rather than
+  # asked about, because which greeter runs is a choice about the look of the
+  # login screen rather than a gap in the desktop, and tuigreet is what this one
+  # wants.
   if ! binary_installed tuigreet || ! pacman -Qi greetd &> /dev/null; then
     info "Installing greeter packages..."
     if sudo pacman -S --needed "${GREETER_PACKAGES[@]}" < /dev/tty 2>&1 | tee -a "${LOG_FILE}"; then

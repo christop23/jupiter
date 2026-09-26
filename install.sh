@@ -2930,7 +2930,14 @@ parse_arguments() {
 # ==========================
 
 trap 'cleanup_on_error ${LINENO}' ERR
-trap 'cleanup_on_exit' EXIT INT TERM
+# INT and TERM get their own handlers that exit. cleanup_on_exit is a plain
+# cleanup function, and bash resumes at the next command after a trap handler
+# returns, so sharing EXIT's handler with them meant a single Ctrl-C during
+# `pacman -Syu` killed pacman, ran the cleanup, and then carried on with the
+# rest of the install minus the sudo keepalive.
+trap 'cleanup_on_exit' EXIT
+trap 'cleanup_on_exit; exit 130' INT
+trap 'cleanup_on_exit; exit 143' TERM
 
 parse_arguments "$@"
 main

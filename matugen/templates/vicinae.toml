@@ -5,6 +5,11 @@
 [meta]
 name = "Matugen Generated"
 description = "Dynamic theme generated from current wallpaper"
+# Listed under Required Fields in vicinae's theme structure documentation, and
+# harmless if it turns out to be optional: every theme vicinae ships, and every
+# community theme checked, omits it. Cost of leaving it out is a theme that may be
+# rejected silently; cost of putting it in is nothing.
+version = 1
 <* if {{ is_dark_mode }} *>
 variant = "dark"
 inherits = "vicinae-dark"

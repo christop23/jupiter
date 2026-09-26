@@ -53,7 +53,7 @@ SUDO_PID=""
 # Expected configuration folders in the repo
 readonly CONFIG_FOLDERS=(
   niri waybar fish fastfetch mako alacritty starship
-  nvim vicinae gtklock zathura matugen scripts
+  vicinae gtklock zathura matugen scripts
 )
 
 # Configurations that are a single file in the config directory rather than a
@@ -177,6 +177,16 @@ readonly AUR_PACKAGES=(
 #           KDE in with it. oo7 is a minimal provider with little use beyond
 #           it. All of them are offered, since a machine already using one, or
 #           a person who wants one, should not be second-guessed here.
+#   nodejs  nodejs                    3 providers, also wanted by an AUR
+#           package, and with no recommendation. vicinae-bin depends on nodejs
+#           directly, nodejs is a virtual, and its providers are nodejs-lts-iron,
+#           -jod and -krypton. So install_aur_packages asks this one, and a bare
+#           Enter takes the first alphabetically, which is the oldest LTS. That
+#           is the exact failure the rest of this list exists to prevent, and it
+#           is left that way here because which LTS a launcher should be built
+#           against is a preference rather than something this installer can
+#           infer. Add a PACMAN_PROVIDER_NODEJS and a line to
+#           provider_recommendations if you want a default.
 readonly PACMAN_PROVIDER_PORTAL="xdg-desktop-portal-gnome"
 readonly PACMAN_PROVIDER_JACK="pipewire-jack"
 readonly PACMAN_PROVIDER_WIREPLUMBER="wireplumber"
@@ -225,7 +235,7 @@ provider_recommendations() {
 
 # Official repository packages
 readonly PACMAN_PACKAGES=(
-  niri waybar fish fastfetch mako alacritty starship neovim eza
+  niri waybar fish fastfetch mako alacritty starship eza
   zathura zathura-pdf-mupdf ttf-jetbrains-mono-nerd ttf-nerd-fonts-symbols
   qt5-wayland qt6-wayland polkit-gnome unzip jq unrar 7zip man-db bat
   gtklock curl libnotify pavucontrol thunar awww matugen librewolf bottom
@@ -1942,6 +1952,16 @@ aur_dependencies() {
   # parser: the RPC returns the lot on one line, and the only quoted strings
   # between the brackets are the names. Duplicates across several packages are
   # harmless, the analyzer walks a package once.
+  # "Depends":["a","b"] out to one name per line. jq is not used because the
+  # array is all that is wanted from the response and this reads it without a
+  # parser: the RPC returns the lot on one line, and the only quoted strings
+  # between the brackets are the names. Duplicates across several packages are
+  # harmless, the analyzer walks a package once.
+  #
+  # Descriptors are dropped rather than walked. A Depends entry can be
+  # "foo: pkg-config-foo", and a seed containing a colon is not a package name,
+  # so the analyzer would look it up, find nothing, and move on -- but the split
+  # costs nothing and keeps the seed list to things that can exist.
   printf '%s' "${response}" |
     tr -d '\n' |
     grep -oE '"Depends":\[[^]]*\]' |
@@ -1949,7 +1969,8 @@ aur_dependencies() {
     grep -oE '"[^"]+"' |
     tr -d '"' |
     tr ' ' '\n' |
-    grep -v '^$' || true
+    grep -v '^$' |
+    cut -d: -f1 || true
 }
 
 install_aur_packages() {
@@ -2440,7 +2461,7 @@ verify_all_binaries() {
   local missing_binaries=()
   local binaries_to_check=(
     niri waybar fish fastfetch mako alacritty starship
-    nvim vicinae gtklock zathura matugen awww librewolf btm
+    vicinae gtklock zathura matugen awww librewolf btm
   )
 
   for binary in "${binaries_to_check[@]}"; do

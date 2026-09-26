@@ -32,10 +32,11 @@ for p in $HOME/.local/bin $HOME/bin
     end
 end
 
-# Go, when it is installed. The nvim config in this repo has the Go language
-# extras enabled, so gopls and the go formatters are worth having, but the
-# toolchain itself is not part of this setup and the old unconditional entry
-# assumed it was.
+# Go, when it is installed. Nothing in this setup needs it -- the editor config
+# that used to enable the Go language extras is gone -- but a Go toolchain
+# installed by hand puts gopls and the formatters on PATH by convention, and
+# adding the directory when it exists costs nothing. The old entry was
+# unconditional, so every shell carried a dead path whether or not Go was there.
 if test -d $HOME/go/bin
     if not contains -- $HOME/go/bin $PATH
         set -p PATH $HOME/go/bin

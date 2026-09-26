@@ -8,8 +8,13 @@ spawn-at-startup "sh" "-c" "vicinae server &"
 prefer-no-csd
 screenshot-path "~/Pictures/Screenshots/%Y-%m-%d %H-%M-%S.png"
 
-output "eDP-1" {
-    mode "1920x1080@60.024"
+// The external display. A connector name is hardware-specific: HDMI-A-1 is a
+// motherboard or GPU port, DP-1 and HDMI-A-2 appear once several are present,
+// and a laptop panel is eDP-1. niri logs a warning for an output it cannot find
+// and carries on, so a wrong name here means the mode is never applied rather
+// than a broken config. `niri msg outputs` lists the real ones.
+output "HDMI-A-1" {
+    mode "1920x1080@143.997"
     scale 1
 }
 
@@ -28,6 +33,11 @@ input {
 
     focus-follows-mouse
     workspace-auto-back-and-forth
+
+    // Hands the power button back. By default niri takes it to make the machine
+    // sleep, which suspends without putting the lock screen up first. The
+    // XF86PowerOff binding above is what should act on it instead.
+    disable-power-key-handling
 }
 
 hotkey-overlay {
@@ -58,6 +68,13 @@ layer-rule {
 binds {
     // Shortcuts Panel
     MOD+SHIFT+ESCAPE                    { show-hotkey-overlay; }
+
+    // Suspend through the lock screen. niri takes the power button by default to
+    // make it sleep, which resumes to an unlocked session; disable-power-key-handling
+    // in the input block below hands the key back so this binding is the only
+    // thing acting on it. If the key does not reach niri on your hardware, the
+    // fallback is HandlePowerKey=suspend in logind.conf, which also does not lock.
+    XF86PowerOff                         { spawn-sh "~/.config/scripts/lock-and-suspend.sh"; }
 
     // Application Shortcuts
     MOD+RETURN                          hotkey-overlay-title="Open Terminal: alacritty" { spawn-sh "alacritty"; }

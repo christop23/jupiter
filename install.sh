@@ -1455,12 +1455,58 @@ analyze_virtual_providers() {
           line = "AMB\t" d "\t" cur "\t" rec "\t" state
           for (k = 1; k <= np; k++) line = line "\t" pl[k]
           print line
+          emitted[d] = 1
         }
         chosen = (d in depsby) ? d : pl[1]
         if ((chosen in depsby) && !(chosen in seen_pkg)) {
           seen_pkg[chosen] = 1; q[++nq] = chosen
         }
       }
+    }
+    # A seed is normally a real package to walk out from, but a Depends entry
+    # can be a bare virtual, and then the walk above never asks about it.
+    #
+    # nodejs is the live example. vicinae-bin depends on it, its three providers
+    # are nodejs-lts-iron, -jod and -krypton, and no repository has a package
+    # called nodejs -- so depsby has no entry for it, the walk skips it at the
+    # `cur in depsby` guard, and nothing in the closure names it as a dependency
+    # either, because the AUR package that wants it is not in the sync databases.
+    #
+    # org.freedesktop.secrets is reached because qtkeychain-qt6 is a real package
+    # whose own %DEPENDS% names it. A bare virtual seed has no such package
+    # behind it, so it has to be asked about directly or it is silently dropped
+    # and pacman picks for you.
+    for (i = 1; i <= ns; i++) {
+      s = sl[i]
+      if (s == "" || !(s in provby) || (s in emitted)) continue
+      d = s
+      np = split(drop_multilib(), pl, ",")
+      if (np < 2 || multilib_only() || (s in isasked)) continue
+      # Satisfied by a provider being present. satisfied[] is only filled in by
+      # flush(), which sees real packages, so a virtual never lands in it even
+      # on a machine that already has one of its providers installed. Without
+      # this the row is reported open and the question gets asked about
+      # something already decided.
+      #
+      # The virtual own name counts too, because a package always satisfies a
+      # dependency on its own name. That is not a corner case here: nodejs is
+      # installed on this machine as a package called nodejs, while every
+      # repository now ships only nodejs-lts-iron, -jod and -krypton, so the
+      # installed package is in no sync database and appears in none of pl[].
+      # Checking only the providers therefore asks about a dependency that is
+      # already met.
+      state = "open"
+      if ((s in isexplicit) || (s in isinstalled)) state = "pinned"
+      for (k = 1; k <= np; k++) {
+        if ((pl[k] in isexplicit) || (pl[k] in isinstalled)) state = "pinned"
+      }
+      total++
+      if (state == "open") open++
+      rec = (s in recfor) ? recfor[s] : "-"
+      line = "AMB\t" s "\tan AUR package\t" rec "\t" state
+      for (k = 1; k <= np; k++) line = line "\t" pl[k]
+      print line
+      emitted[s] = 1
     }
     print "COUNT\t" total "\t" open
   }'

@@ -34,9 +34,9 @@ input {
     focus-follows-mouse
     workspace-auto-back-and-forth
 
-    // Hands the power button back. By default niri takes it to make the machine
-    // sleep, which suspends without putting the lock screen up first. The
-    // XF86PowerOff binding above is what should act on it instead.
+    // Hands the power key to the binding above. Without this, niri's own
+    // hardcoded bind catches the key and suspends without putting the lock
+    // screen up first, and the binding is never reached.
     disable-power-key-handling
 }
 
@@ -69,11 +69,27 @@ binds {
     // Shortcuts Panel
     MOD+SHIFT+ESCAPE                    { show-hotkey-overlay; }
 
-    // Suspend through the lock screen. niri takes the power button by default to
-    // make it sleep, which resumes to an unlocked session; disable-power-key-handling
-    // in the input block below hands the key back so this binding is the only
-    // thing acting on it. If the key does not reach niri on your hardware, the
-    // fallback is HandlePowerKey=suspend in logind.conf, which also does not lock.
+    // Suspend through the lock screen. disable-power-key-handling in the input
+    // block below is what makes this binding reachable at all, not a
+    // belt-and-braces extra.
+    //
+    // niri's find_bind() matches hardcoded keys before configured ones, and one
+    // of the hardcoded arms is
+    //
+    //     KEY_XF86PowerOff if !disable_power_key_handling => Some(Action::Suspend)
+    //
+    // which returns immediately. With the default, this line would be dead
+    // config: the power key would suspend without locking and the binding would
+    // never be consulted. Setting the flag makes that arm produce None, the
+    // early return is skipped, and the key falls through to
+    // find_configured_bind() like any other, where this line is matched.
+    //
+    // An earlier version of this comment claimed the key might not reach niri on
+    // some hardware and pointed at HandlePowerKey=suspend in logind.conf as a
+    // fallback. Wrong on both counts, and dropped: the key is matched in the
+    // same path as every other binding, so there is no separate route for it to
+    // fail, and logind cannot lock anything, which is the entire reason this
+    // binding exists.
     XF86PowerOff                         hotkey-overlay-title="Suspend: lock, then sleep" { spawn-sh "$HOME/.config/scripts/lock-and-suspend.sh"; }
 
     // Application Shortcuts

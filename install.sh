@@ -778,6 +778,16 @@ verify_binary() {
   return 0
 }
 
+# Quiet counterpart to verify_binary, for the branches that install the missing
+# binary themselves. A binary that is about to be installed is not a fault, and
+# reporting it as one puts an [ERROR] line on the console immediately before the
+# step that fixes it, which reads as a failure that is still to come. Keep this
+# for pre-install checks and verify_binary for the step that actually asserts a
+# binary has to be there by then.
+binary_installed() {
+  command -v "$1" &> /dev/null
+}
+
 # ==========================
 # BACKUP FUNCTIONS
 # ==========================
@@ -1526,7 +1536,7 @@ configure_greeter() {
     return 0
   fi
 
-  if ! verify_binary tuigreet || ! pacman -Qi greetd &> /dev/null; then
+  if ! binary_installed tuigreet || ! pacman -Qi greetd &> /dev/null; then
     info "Installing greeter packages..."
     if sudo pacman -S --needed "${GREETER_PACKAGES[@]}" < /dev/tty 2>&1 | tee -a "${LOG_FILE}"; then
       msg "Greeter packages installed successfully."
@@ -1537,7 +1547,7 @@ configure_greeter() {
     msg "greetd and tuigreet are already installed."
   fi
 
-  if ! verify_binary tuigreet; then
+  if ! binary_installed tuigreet; then
     fatal "tuigreet binary not found after installation."
   fi
 
@@ -1853,7 +1863,7 @@ configure_shells() {
   info "Configuring fish shell (default and only shell)..."
   CONFIGURE_FISH=true
 
-  if ! verify_binary fish; then
+  if ! binary_installed fish; then
     info "Installing fish..."
     if sudo pacman -S --needed fish < /dev/tty 2>&1 | tee -a "${LOG_FILE}"; then
       msg "fish installed successfully."
@@ -2130,7 +2140,7 @@ create_systemd_services() {
 create_gtklock_service() {
   local service_dir="$1"
 
-  if ! verify_binary gtklock; then
+  if ! binary_installed gtklock; then
     warn "gtklock binary not found, skipping service creation"
     return
   fi

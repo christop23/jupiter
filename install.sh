@@ -84,7 +84,11 @@ readonly GREETER_PACKAGES=(
 # Display managers that must not run at the same time as greetd
 readonly CONFLICTING_DMS=("lightdm" "gdm" "sddm" "ly" "xdm" "lxdm")
 
-# AUR packages to install
+# AUR packages to install. Their dependencies are the only part of the install
+# the official database cannot describe, so any provider question hiding in one
+# of those trees is asked in install_aur_packages, which reads this list to work
+# out what to walk from. Adding a package here needs nothing else: its metadata
+# is fetched, its dependencies are walked, and the questions it raises are asked.
 readonly AUR_PACKAGES=(
   vicinae-bin
 )
@@ -96,6 +100,13 @@ readonly AUR_PACKAGES=(
 # you cannot see. There is no pacman.conf setting for this, and --noconfirm
 # would pick the first entry alphabetically, which for the portal is the
 # xdg-desktop-portal-cosmic backend, which niri cannot screencast through.
+#
+# The list below is what this installer would pick on its own. Where the
+# question can be put to the user in advance it is, marked as a recommendation
+# and taken on a bare Enter, so these are defaults rather than decisions; the
+# ones reached only from an AUR dependency cannot be pinned here at all, because
+# the package asking for them is not in the transaction this list is built for.
+# See install_aur_packages for that case.
 #
 #   portal   xdg-desktop-portal-impl   10 providers, wanted by niri.
 #           niri does its monitor and window screencasting through the gnome
@@ -126,12 +137,32 @@ readonly AUR_PACKAGES=(
 #   opengl   opengl-driver               3 providers. nvidia-utils covers it
 #           when the NVIDIA driver is installed, otherwise mesa does, and
 #           that choice is made per run in build_pacman_targets.
+#   secrets  org.freedesktop.secrets     5 providers, wanted by an AUR package:
+#           vicinae-bin reaches it through qtkeychain-qt6, which keeps its
+#           credentials in the Secret Service, and nothing else in this stack
+#           provides one. The one to learn from here is the shape rather than
+#           the package: a virtual wanted by something reached from the AUR
+#           cannot be pinned in this list at all, because the package that wants
+#           it is not part of the transaction this list is built for, and it has
+#           to be asked in install_aur_packages instead. Any AUR package added
+#           to AUR_PACKAGES is covered the same way.
+#           gnome-keyring is the recommendation over the other four because it
+#           is the implementation the rest of the desktop stack is written
+#           against, and it activates over D-Bus, so it works with no GNOME
+#           session running. The other four each change what the machine is
+#           rather than just backing a service: chipass and keepassxc are
+#           password managers, which becomes the login password store and wants
+#           its own unlock flow, and kwallet is a Plasma component that drags
+#           KDE in with it. oo7 is a minimal provider with little use beyond
+#           it. All of them are offered, since a machine already using one, or
+#           a person who wants one, should not be second-guessed here.
 readonly PACMAN_PROVIDER_PORTAL="xdg-desktop-portal-gnome"
 readonly PACMAN_PROVIDER_JACK="pipewire-jack"
 readonly PACMAN_PROVIDER_WIREPLUMBER="wireplumber"
 readonly PACMAN_PROVIDER_FONT="noto-fonts"
 readonly PACMAN_PROVIDER_TESSDATA="tesseract-data-eng"
 readonly PACMAN_PROVIDER_MESA="mesa"
+readonly PACMAN_PROVIDER_SECRETS="gnome-keyring"
 
 # Official repository packages
 readonly PACMAN_PACKAGES=(
@@ -1065,6 +1096,19 @@ drop_installed_targets() {
 #   AMB <virtual> <needed-by> <recommendation|-> <pinned|open> <provider>...
 # and a trailing COUNT line. "pinned" means an explicit target already
 # provides it, which is what stops pacman asking.
+#
+# Arguments are seed packages to walk from in addition to PACMAN_TARGETS. They
+# are dependencies of an AUR package, reached through the AUR RPC rather than
+# named in any transaction, and they are walked but not treated as targets: a
+# seed is not a decision, it is the way in. Their own dependencies are followed
+# all the same, which is how an AUR package ends up putting a question about an
+# official virtual to the user.
+#
+# A virtual already put to the user is left out of the report. The AUR step
+# walks a different set of seeds but reaches back into the official
+# repositories, where the pacman step has already decided things like the
+# opengl driver, and asking the same question twice reads as the first answer
+# having been ignored.
 analyze_virtual_providers() {
   local program='
   function flush(   a, i, n) {
@@ -1101,6 +1145,8 @@ analyze_virtual_providers() {
     for (i = 1; i <= nt; i++) if (tl[i] != "") isexplicit[tl[i]] = 1
     ni = split(installed, il, " ")
     for (i = 1; i <= ni; i++) if (il[i] != "") isinstalled[il[i]] = 1
+    nk = split(asked, kl, " ")
+    for (i = 1; i <= nk; i++) if (kl[i] != "") isasked[kl[i]] = 1
   }
   /^%NAME%$/ { flush(); sect = "NAME"; next }
   /^%[A-Z]+%$/ { sect = $0; sub(/^%/, "", sect); sub(/%$/, "", sect); next }
@@ -1127,6 +1173,13 @@ analyze_virtual_providers() {
       if (tl[i] == "" || (tl[i] in seen_name)) continue
       seen_name[tl[i]] = 1; q[++nq] = tl[i]
     }
+    # Seeds join the queue behind the targets, and the seen check above keeps a
+    # seed that is also a target from being walked twice.
+    ns = split(seeds, sl, " ")
+    for (i = 1; i <= ns; i++) {
+      if (sl[i] == "" || (sl[i] in seen_name)) continue
+      seen_name[sl[i]] = 1; q[++nq] = sl[i]
+    }
     head = 1
     while (head <= nq) {
       cur = q[head++]
@@ -1138,7 +1191,10 @@ analyze_virtual_providers() {
         np = (d in provby) ? split(provby[d], pl, ",") : 0
         if (np == 0) continue
         seen_name[d] = 1
-        if (np > 1 && !multilib_only()) {
+        # A virtual already put to the user is left out of the report, but the
+        # walk carries on through it below either way: something behind it can
+        # be ambiguous too.
+        if (np > 1 && !multilib_only() && !(d in isasked)) {
           total++
           state = (d in satisfied) ? "pinned" : "open"
           if (state == "open") open++
@@ -1179,6 +1235,7 @@ analyze_virtual_providers() {
   recs+=",pipewire-session-manager=${PACMAN_PROVIDER_WIREPLUMBER}"
   recs+=",ttf-font=${PACMAN_PROVIDER_FONT}"
   recs+=",tessdata=${PACMAN_PROVIDER_TESSDATA}"
+  recs+=",org.freedesktop.secrets=${PACMAN_PROVIDER_SECRETS}"
   # greetd-greeter has no entry here, and does not need one: the greeter is not
   # among the targets walked below, so the question never comes up here, and
   # configure_greeter names greetd-tuigreet in the call that installs it.
@@ -1188,25 +1245,50 @@ analyze_virtual_providers() {
     recs+=",opengl-driver=${PACMAN_PROVIDER_MESA}"
   fi
 
+  # Seeds and the already-asked list are space joined for the same reason.
+  local seeds=""
+  if [[ $# -gt 0 ]]; then
+    printf -v seeds '%s ' "$@"
+  fi
+
   # `|| true` so a missing tar or awk degrades to no report instead of
   # aborting the install.
   PROVIDER_REPORT="$(for db in "${dbs[@]}"; do
     tar -xzOf "${db}" 2> /dev/null || true
   done | awk -v targets="${targets}" -v recs="${recs}" \
-    -v installed="${installed}" "${program}")" || true
+    -v installed="${installed}" -v seeds="${seeds}" \
+    -v asked="${ASKED_VIRTUALS}" "${program}")" || true
 }
 
 # Tab separated analysis of the current target list, refreshed by
 # analyze_virtual_providers. Empty when the sync databases are unreadable.
 PROVIDER_REPORT=""
 
+# Virtuals already put to the user, space separated, and read by the analyzer to
+# keep a question from being asked twice. Unlike the report above this survives
+# from one step to the next, which is the point: the AUR step reuses the analyzer
+# and reaches back into the packages the pacman step has already decided.
+ASKED_VIRTUALS=""
+
+# The rows for the choices made by the last resolve_virtual_providers call, one
+# per line as virtual|chosen provider|pattern matching its providers, ready for
+# report_providers to check once the install is done. Reset by every resolver
+# call, so it always describes the step that just asked.
+RESOLVED_PROVIDERS=()
+
 # Walks the sync databases and reports every dependency that has more than one
 # provider, before pacman gets the chance to ask about one of them. On a first
 # boot the console is 80x24 and a long list scrolls off the top, so answering
 # the real prompt means guessing; this makes the whole decision visible up
 # front, with the entry this installer wants marked.
+#
+# The optional argument says where this set of dependencies came from. It is
+# printed under the heading and suppresses the longer explanation of why the
+# question is being asked at all, which the AUR step does not need to repeat
+# two steps after the first one already gave it.
 preview_virtual_providers() {
   local report="${PROVIDER_REPORT}"
+  local origin="${1:-}"
 
   if [[ -z "${report}" ]]; then
     return 0
@@ -1214,9 +1296,13 @@ preview_virtual_providers() {
 
   printf "\n"
   printf "${BOLD}Dependencies that have more than one provider${NC}\n"
-  printf "  ${CYAN}pacman asks about these one at a time. On an 80x24 console the\n"
-  printf "  list scrolls off the top, so you are asked below instead, with the\n"
-  printf "  same numbering and the recommendation marked.${NC}\n"
+  if [[ -n "${origin}" ]]; then
+    printf "  ${CYAN}Reached from %s.${NC}\n" "${origin}"
+  else
+    printf "  ${CYAN}pacman asks about these one at a time. On an 80x24 console the\n"
+    printf "  list scrolls off the top, so you are asked below instead, with the\n"
+    printf "  same numbering and the recommendation marked.${NC}\n"
+  fi
   printf "\n"
 
   local line virtual needed_by rec provider
@@ -1255,9 +1341,9 @@ preview_virtual_providers() {
   done <<< "${report}"
 
   if [[ "${open_count}" -eq 0 ]]; then
-    msg "${total} ambiguous dependencies, every one has an installer default."
+    msg "${total} ambiguous dependencies, every one covered by an installer default."
   else
-    warn "${total} ambiguous dependencies, ${open_count} with no default. Marked above."
+    warn "${total} ambiguous dependencies, ${open_count} decided only by the answer below."
   fi
   printf "\n"
 }
@@ -1282,6 +1368,10 @@ resolve_virtual_providers() {
   # than open, but it stays in the report, so without this the loop would ask
   # the same question five times.
   local -A asked=()
+
+  # The rows checked after the install describe the choices made here, so the
+  # previous step's are dropped rather than reported a second time.
+  RESOLVED_PROVIDERS=()
 
   # An answer can pull in packages that are ambiguous in their own right, the
   # way choosing pipewire-jack surfaces pipewire-session-manager, so the
@@ -1340,7 +1430,9 @@ resolve_virtual_providers() {
 }
 
 # Prints one numbered provider list and reads the choice, then appends the
-# chosen package to PACMAN_TARGETS.
+# chosen package to PACMAN_TARGETS. The virtual goes on the list of questions
+# already asked, and the choice goes into RESOLVED_PROVIDERS so it can be
+# checked against what actually got installed.
 #
 # Takes the fields of one AMB row in order: virtual, the package that needs
 # it, the recommendation, the state, then the providers. The state is skipped
@@ -1391,18 +1483,65 @@ ask_for_provider() {
 
   local picked="${providers[choice - 1]}"
   PACMAN_TARGETS+=("${picked}")
+  ASKED_VIRTUALS+="${virtual} "
+
+  # The pattern is the provider list as a regular expression, so the check after
+  # the install can name every provider of this virtual and not just the chosen
+  # one. The dots are escaped because these names go into a regex, not because
+  # a package name can be expected to carry one.
+  local pattern="" provider
+  for provider in "${providers[@]}"; do
+    pattern+="${pattern:+|}${provider//./\\.}"
+  done
+  RESOLVED_PROVIDERS+=("${virtual}|${picked}|(${pattern})")
+
   msg "${virtual} -> ${picked}"
+}
+
+# Says out loud which provider of each virtual is actually installed, so a wrong
+# pick does not stay silent: the desktop still comes up and the affected feature
+# just quietly does not work.
+#
+# Arguments are virtual|expected provider|regular expression matching its
+# providers, one per argument. The expected provider is what the caller wants to
+# see: a recommendation for the ones this installer pinned, the person's own
+# choice for the ones resolve_virtual_providers asked about, since warning
+# someone about the answer they just gave would be pointless.
+report_providers() {
+  local entry virtual expected pattern found
+
+  for entry in "$@"; do
+    IFS='|' read -r virtual expected pattern <<< "${entry}"
+
+    # `pacman -Qo` is no use here: the shared directories report every package
+    # in the system. Matching the package list against the provider names is
+    # path independent and needs no extra tooling.
+    found="$(pacman -Qq 2> /dev/null | grep -E "^(${pattern})$" | tr '\n' ' ' || true)"
+
+    if [[ -z "${found}" ]]; then
+      warn "No provider of '${virtual}' is installed, expected ${expected}."
+      continue
+    fi
+
+    if [[ " ${found} " == *" ${expected} "* ]]; then
+      msg "${virtual} -> ${expected}"
+    else
+      warn "${virtual} resolved to ${found} instead of ${expected}."
+      info "Install ${expected} and remove the others if this feature misbehaves."
+    fi
+  done
 }
 
 # Pinning the providers above removes today's prompts, but it cannot cover
 # every virtual a future package release might add, and the picker gives no
-# hint that an answer matters. A wrong pick is silent: the desktop still comes
-# up, screen sharing and OCR just quietly do not work. So check afterwards which
-# providers actually landed and say so out loud.
+# hint that an answer matters. So check afterwards which providers actually
+# landed and say so out loud.
 verify_virtual_providers() {
   # virtual | expected provider | regular expression matching its providers.
   # The list mirrors the recommendations in preview_virtual_providers, so a
-  # provider that is named there is also checked for here.
+  # provider that is named there is also checked for here. The ones reached only
+  # from an AUR package are not in it: those are checked against the answers
+  # given, by the AUR step.
   local -a checks=(
     "xdg-desktop-portal-impl|${PACMAN_PROVIDER_PORTAL}|xdg-desktop-portal-(cosmic|dde|gnome|gtk|hyprland|kde|lxqt|phosh|wlr|xapp)"
     "jack|${PACMAN_PROVIDER_JACK}|(jack2|pipewire-jack)"
@@ -1419,38 +1558,125 @@ verify_virtual_providers() {
     checks+=("opengl-driver|${PACMAN_PROVIDER_MESA}|(mesa|mesa-amber|nvidia-utils)")
   fi
 
-  local entry virtual expected pattern found
-  for entry in "${checks[@]}"; do
-    IFS='|' read -r virtual expected pattern <<< "${entry}"
+  report_providers "${checks[@]}"
+}
 
-    # `pacman -Qo` is no use here: the shared directories report every package
-    # in the system. Matching the package list against the provider names is
-    # path independent and needs no extra tooling.
-    found="$(pacman -Qq 2> /dev/null | grep -E "^(${pattern})$" | tr '\n' ' ' || true)"
+# The dependencies of every package in AUR_PACKAGES, one per line.
+#
+# The analyzer walks the sync databases, and an AUR package is in neither of
+# them: it is built from a PKGBUILD that lives only on the AUR. Those dependency
+# lists are the edges leading out of the AUR packages and into the official
+# repositories, which is where the interesting virtuals are: for vicinae-bin it
+# is qtkeychain-qt6 and the org.freedesktop.secrets virtual, but the shape is
+# the same for any package, and the union of the lists is all the walk needs to
+# see the whole graph and put the question in front of the user instead of
+# pacman. The RPC serves them as JSON without building anything.
+#
+# A dependency that is itself only on the AUR cannot be walked into, because
+# nothing local describes it. That is a real limit and the one to watch when
+# packages are added here: a virtual buried in the dependencies of an AUR
+# package's own AUR dependency is still asked by pacman, and the deeper the
+# chain of AUR-to-AUR dependencies, the likelier that becomes. Every dependency
+# of the packages in this list is an official one, so it does not bite yet, and
+# the AUR helper would have to build a package to find out more.
+#
+# Nothing is fatal about failing to reach the AUR, or about curl not being
+# there. The caller falls back to naming a provider rather than asking, which is
+# the same outcome this had before the question was added, and curl is installed
+# by the base tools step long before this runs.
+aur_dependencies() {
+  if [[ ${#AUR_PACKAGES[@]} -eq 0 ]]; then
+    return 0
+  fi
 
-    if [[ -z "${found}" ]]; then
-      warn "No provider of '${virtual}' is installed, expected ${expected}."
-      continue
-    fi
-
-    if [[ " ${found} " == *" ${expected} "* ]]; then
-      msg "${virtual} -> ${expected}"
-    else
-      warn "${virtual} resolved to ${found}instead of ${expected}."
-      info "Install ${expected} and remove the others if this feature misbehaves."
-    fi
+  # v5/info takes one package per URL, so the list goes in as the repeated
+  # arguments of the older form, which does take several. The brackets are
+  # percent encoded because a bare [ is not a legal character in a query string.
+  local url="https://aur.archlinux.org/rpc/?v=5&type=info"
+  local pkg
+  for pkg in "${AUR_PACKAGES[@]}"; do
+    url+="&arg%5B%5D=${pkg}"
   done
+
+  # `|| true` and the Depends check below: an unreachable AUR means the question
+  # cannot be asked, not that the install is over.
+  local response
+  response="$(curl -fsS --max-time 20 "${url}" 2> /dev/null)" || return 0
+  if [[ "${response}" != *'"Depends"'* ]]; then
+    return 0
+  fi
+
+  # "Depends":["a","b"] out to one name per line. jq is not used because the
+  # array is all that is wanted from the response and this reads it without a
+  # parser: the RPC returns the lot on one line, and the only quoted strings
+  # between the brackets are the names. Duplicates across several packages are
+  # harmless, the analyzer walks a package once.
+  printf '%s' "${response}" |
+    tr -d '\n' |
+    grep -oE '"Depends":\[[^]]*\]' |
+    sed 's/^"Depends":\[//; s/\]$//' |
+    grep -oE '"[^"]+"' |
+    tr -d '"' |
+    tr ' ' '\n' |
+    grep -v '^$' || true
 }
 
 install_aur_packages() {
   info "Installing AUR packages using ${AUR_HELPER}..."
+
+  local -a targets=("${AUR_PACKAGES[@]}")
+  local -a checks=()
+  local -a seeds=()
+  mapfile -t seeds < <(aur_dependencies)
+
+  if [[ ${#seeds[@]} -gt 0 ]]; then
+    # The same treatment the official packages get, for every AUR package in the
+    # list: walk in from their dependencies, show what is ambiguous, and ask.
+    # None of them are in the pacman step's target list, so nothing reachable
+    # from one has been asked yet, and PACMAN_TARGETS is emptied so the answers
+    # land on their own. Nothing reads that list again after this step, so it is
+    # left holding the answers.
+    PACMAN_TARGETS=()
+    analyze_virtual_providers "${seeds[@]}"
+    preview_virtual_providers "the AUR packages"
+    resolve_virtual_providers
+
+    # A chosen provider is a package name like any other, so it goes in the same
+    # transaction: the helper hands it to pacman, which finds it in the official
+    # repositories.
+    if [[ ${#PACMAN_TARGETS[@]} -gt 0 ]]; then
+      targets+=("${PACMAN_TARGETS[@]}")
+    fi
+    checks=("${RESOLVED_PROVIDERS[@]}")
+  else
+    # No metadata, so there is nothing to walk from and the question cannot be
+    # asked. Naming the one provider this list knows about is the best that can
+    # be done without the dependency lists, and it settles the virtual currently
+    # expected here. It cannot settle a virtual that a package added to
+    # AUR_PACKAGES later turns out to want, so on this path such a question
+    # would still reach pacman; there is no way to know what it is without the
+    # metadata, which is exactly what is missing. The AUR serves the RPC and the
+    # PKGBUILD alike, so reaching this means the AUR is unreachable and the
+    # install below is about to fail anyway.
+    warn "Could not read the AUR metadata, so the provider questions are skipped."
+    info "Naming ${PACMAN_PROVIDER_SECRETS} instead, so pacman does not stop to ask."
+    targets+=("${PACMAN_PROVIDER_SECRETS}")
+  fi
+
+  # IFS is newline+tab in this script, so join explicitly for a single-line hint.
+  local target_list
+  printf -v target_list '%s ' "${targets[@]}"
+  info "Installing: ${target_list% }"
   info "This may take several minutes..."
 
-  if "${AUR_HELPER}" -S --needed "${AUR_PACKAGES[@]}" < /dev/tty 2>&1 | tee -a "${LOG_FILE}"; then
+  if "${AUR_HELPER}" -S --needed "${targets[@]}" < /dev/tty 2>&1 | tee -a "${LOG_FILE}"; then
     msg "AUR packages installed successfully."
   else
     fatal "Failed to install AUR packages."
   fi
+
+  # A no-op when nothing was asked, which is the case for the fallback above.
+  report_providers "${checks[@]}"
 }
 
 # ==========================

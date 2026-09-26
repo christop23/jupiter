@@ -2233,14 +2233,18 @@ set_default_shell() {
   local current_shell=""
   current_shell="$(current_login_shell)"
 
+  # `command -v` exits non-zero when fish is absent, and a variable assignment
+  # whose command substitution fails is itself a simple command, so under set -e
+  # the bare form aborted the installer here and the fish-absent path below
+  # could never run. `|| :` keeps the assignment successful either way.
   local fish_bin
-  fish_bin="$(command -v fish)"
+  fish_bin="$(command -v fish)" || fish_bin=""
 
   if [[ -z "${fish_bin}" ]]; then
     warn "fish is not installed. Installing it now..."
 
     if sudo pacman -S --needed fish < /dev/tty 2>&1 | tee -a "${LOG_FILE}"; then
-      fish_bin="$(command -v fish)"
+      fish_bin="$(command -v fish)" || fish_bin=""
       if [[ -z "${fish_bin}" ]]; then
         error "Failed to locate fish after installation."
         return 0

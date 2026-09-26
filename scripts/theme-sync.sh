@@ -559,11 +559,23 @@ run_matugen_theme() {
 
   log_info "Running matugen (mode: $mode) for wallpaper: $wallpaper_path"
 
-  if ! matugen image "$wallpaper_path" --mode "$mode" --type scheme-smart 2> /dev/null; then
-    log_warn "Matugen theme generation failed, continuing..."
-  else
+  # stdout is captured rather than discarded. matugen prints its colour table
+  # there, so leaving it alone spammed the terminal and, worse, threw away the
+  # only output that explains a failure -- which is why a failed run used to
+  # carry on silently and then report success.
+  local output
+  if output="$(matugen image "$wallpaper_path" --mode "$mode" --type scheme-smart 2>&1)"; then
     log_success "Matugen theme generation completed"
+    return 0
   fi
+
+  log_error "Matugen theme generation failed"
+  if [[ -n "$output" ]]; then
+    while IFS= read -r line; do
+      [[ -n "$line" ]] && log_warn "  matugen: $line"
+    done <<< "$output"
+  fi
+  return 1
 }
 
 update_niri_config() {

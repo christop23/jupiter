@@ -126,8 +126,14 @@ readonly AUR_PACKAGES=(
 #   portal   xdg-desktop-portal-impl   10 providers, wanted by niri.
 #           niri does its monitor and window screencasting through the gnome
 #           portal, so that is the correct backend here, not wlr.
-#   jack     jack, libjack.so            2 and 4 providers, wanted by waybar.
+#   jack     jack                        2 providers, wanted by waybar.
 #           pipewire-jack because this stack is PipeWire based.
+#   soname   libjack.so                  2 providers once the 32-bit mirrors
+#           are filtered out, wanted by waybar and portaudio. Same choice, and
+#           asked separately because pacman resolves the soname virtual from
+#           the package's dependency rather than the jack virtual, so naming
+#           pipewire-jack settles one and not the other. See multilib_only and
+#           drop_multilib in analyze_virtual_providers.
 #   session  pipewire-session-manager    3 providers, reached through
 #           pipewire-jack, so pinning jack on its own only moves the question.
 #           wireplumber over the other two: pipewire-media-session is marked
@@ -1286,11 +1292,20 @@ analyze_virtual_providers() {
   #   libz.so      zlib, zlib-ng-compat   + the lib32- pair
   #   libxml2.so   libxml2, libxml2-legacy
   #
-  # Those are real questions a 64-bit user gets asked, and three are reachable
+  # Those are real questions a 64-bit user gets asked, and several are reachable
   # from the target list in this file: libjack.so through waybar and portaudio,
   # libz.so through curl, file, libarchive, harfbuzz and leptonica, libxml2.so
-  # through libarchive. Suppressing them is the one way this feature could fail
-  # at pacman picker with no report, which is what it exists to prevent.
+  # through libarchive, libcrypt.so through pam and shadow, libxtables.so through
+  # iproute2. Suppressing them is the one way this feature could fail at the
+  # pacman picker with no report, which is what it exists to prevent.
+  #
+  # Soname deps are visible here, which is worth stating because it is not
+  # obvious. libalpm stores the computed soname dependencies of a package in the
+  # xdata of the local database rather than in %DEPENDS%, but the sync databases
+  # are written by the same writer and do carry them: 4195 soname entries across
+  # the three repositories, indexed here like any other dependency. The earlier
+  # comment on this function said the opposite, from reading a local desc file
+  # where they are genuinely absent.
   function multilib_only(   i, n, nx64) {
     if (d !~ /^lib.*\.so$/) return 0
     n = split(drop_multilib(), pl, ",")

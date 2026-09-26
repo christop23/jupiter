@@ -75,4 +75,12 @@ case "${action}" in
             systemctl poweroff
         fi
         ;;
+    *)
+        # Unreachable with the menu above as the only source, and the choose()
+        # cancellation already exits earlier. Here so that adding an entry to the
+        # menu and forgetting the arm is a visible line rather than a menu that
+        # silently does nothing when the entry is picked.
+        printf 'Unknown action: %s\n' "${action}" >&2
+        exit 1
+        ;;
 esac

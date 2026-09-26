@@ -189,7 +189,8 @@ listed in `install.sh` under `CONFIG_FOLDERS` or `CONFIG_FILES`:
 | -------------------- | ------------------------------------------------ |
 | `MOD + Return`       | Open terminal (Alacritty)                        |
 | `MOD + B`            | Open primary browser (LibreWolf)                 |
-| `MOD + A`            | Toggle application launcher (Vicinae)            |
+| `MOD + Space`        | Toggle application launcher (Vicinae)            |
+| `MOD + P`            | Open power menu (lock, suspend, restart, exit)   |
 | `MOD + E`            | Open file manager (Thunar)                       |
 | `MOD + W`            | Open wallpaper selector                          |
 | `MOD + Shift + Q`    | Lock screen (GTKLock)                            |

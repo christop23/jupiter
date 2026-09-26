@@ -273,6 +273,7 @@ detect_theme_from_wallpaper() {
 check_theme_changed() {
   local -r current_theme="$1"
   local -r current_variation="$2"
+  local -r current_wallpaper="${3:-}"
 
   # Create cache directory if it doesn't exist
   mkdir -p "$(dirname "$THEME_STATE_FILE")"
@@ -282,8 +283,31 @@ check_theme_changed() {
     return 0 # Theme changed (first run)
   fi
 
-  local previous_theme previous_variation
-  read -r previous_theme previous_variation < "$THEME_STATE_FILE"
+  # Read into one variable rather than two: the state is a single line written
+  # with a plain redirect, and a concurrent read can see a partial write. An
+  # unparseable line is treated as changed, which costs one redundant pass and
+  # cannot leave the colours stale.
+  local state_line
+  state_line="$(cat "$THEME_STATE_FILE" 2>/dev/null || true)"
+  if [[ -z "$state_line" ]]; then
+    log_info "Previous theme state was empty, treating as changed"
+    return 0
+  fi
+
+  local previous_wallpaper="${state_line#*|}"
+  local previous_theme_variation="${state_line%%|*}"
+  local previous_theme="${previous_theme_variation%% *}"
+  local previous_variation="${previous_theme_variation##* }"
+
+  # The wallpaper is part of the key, not just the scheme. Keying on the scheme
+  # alone meant a second wallpaper in the same folder read as unchanged and
+  # skipped matugen entirely, so the colours stayed from the previous image --
+  # and most folders here hold three or four of them, so it happened constantly.
+  # The colours come from the image, so the image is what has to be compared.
+  if [[ -n "$current_wallpaper" && -n "$previous_wallpaper" && "$current_wallpaper" != "$previous_wallpaper" ]]; then
+    log_info "Wallpaper changed: $(basename "$previous_wallpaper") → $(basename "$current_wallpaper")"
+    return 0
+  fi
 
   if [[ "$current_theme" == "$previous_theme" && "$current_variation" == "$previous_variation" ]]; then
     log_info "Theme unchanged: $current_theme ($current_variation)"
@@ -297,9 +321,17 @@ check_theme_changed() {
 save_theme_state() {
   local -r theme="$1"
   local -r variation="$2"
+  local -r wallpaper="${3:-}"
 
   mkdir -p "$(dirname "$THEME_STATE_FILE")"
-  echo "$theme $variation" > "$THEME_STATE_FILE"
+  # Written to a temporary file and renamed, so a reader never sees a partial
+  # line. The wallpaper may contain spaces, so the two fields are separated by a
+  # pipe and the wallpaper is last, which keeps the parse in
+  # check_theme_changed unambiguous.
+  local tmp_file="${THEME_STATE_FILE}.tmp.$$"
+  printf '%s %s|%s\n' "$theme" "$variation" "$wallpaper" > "$tmp_file" \
+    && mv -f "$tmp_file" "$THEME_STATE_FILE" \
+    || { rm -f "$tmp_file"; log_warn "Could not write theme state"; return 1; }
   log_info "Saved theme state: $theme ($variation)"
 }
 
@@ -527,11 +559,23 @@ run_matugen_theme() {
 
   log_info "Running matugen (mode: $mode) for wallpaper: $wallpaper_path"
 
-  if ! matugen image "$wallpaper_path" --mode "$mode" --type scheme-smart 2> /dev/null; then
-    log_warn "Matugen theme generation failed, continuing..."
-  else
+  # stdout is captured rather than discarded. matugen prints its colour table
+  # there, so leaving it alone spammed the terminal and, worse, threw away the
+  # only output that explains a failure -- which is why a failed run used to
+  # carry on silently and then report success.
+  local output
+  if output="$(matugen image "$wallpaper_path" --mode "$mode" --type scheme-smart 2>&1)"; then
     log_success "Matugen theme generation completed"
+    return 0
   fi
+
+  log_error "Matugen theme generation failed"
+  if [[ -n "$output" ]]; then
+    while IFS= read -r line; do
+      [[ -n "$line" ]] && log_warn "  matugen: $line"
+    done <<< "$output"
+  fi
+  return 1
 }
 
 update_niri_config() {
@@ -543,22 +587,57 @@ update_niri_config() {
     return
   fi
 
-  local background_color
-  background_color=$(jq -r '.special.background' "$matugen_colors_file")
-
-  if [[ -z "$background_color" ]]; then
-    log_warn "Could not extract background color from matugen cache"
-    return
+  if [[ ! -f "$niri_config_file" ]]; then
+    log_warn "niri config not found at ${niri_config_file}, skipping"
+    return 1
   fi
 
-  log_info "Updating niri config with background color: $background_color"
+  # .special.cursor, not .special.background. The focus ring and insert hint
+  # are drawn against the backdrop, so painting them the background colour made
+  # them invisible. The cursor value is the accent, which is what matugen's
+  # pywal cache pairs with colors.primary.
+  #
+  # jq -e with the interpolated form, so a missing key exits non-zero instead of
+  # printing the string "null": the old -z test did not catch that, and
+  # `active-color "null"` in config.kdl is a value niri rejects on reload.
+  local accent_color
+  if ! accent_color="$(jq -re '"\(.special.cursor)" // empty' "$matugen_colors_file" 2>/dev/null)" \
+     || [[ ! "$accent_color" =~ ^#[[:xdigit:]]{6,8}$ ]]; then
+    log_warn "Could not read a usable accent colour from ${matugen_colors_file}, skipping niri update"
+    return 1
+  fi
 
-  # Only change active-color within the focus-ring block
-  sed -i "/focus-ring {/,/}/ s/active-color \".*\"/active-color \"$background_color\"/" "$niri_config_file"
-  # Only change color within the insert-hint block
-  sed -i "/insert-hint {/,/}/ s/color \".*\"/color \"$background_color\"/" "$niri_config_file"
+  log_info "Updating niri config with accent color: $accent_color"
 
-  log_success "Niri config updated successfully"
+  # The overview backdrop is a direct substitution rather than a range: an
+  # /overview {/,/}/ range stops at the closing brace of the nested
+  # workspace-shadow block, not the outer one.
+  #
+  # Every sed is checked, because none of them failing was previously visible
+  # and the function logged success regardless.
+  local rc=0
+  sed -i "/focus-ring {/,/}/ s/active-color \".*\"/active-color \"$accent_color\"/" "$niri_config_file" || rc=1
+  sed -i "/insert-hint {/,/}/ s/color \".*\"/color \"$accent_color\"/" "$niri_config_file" || rc=1
+  sed -i "s/backdrop-color \".*\"/backdrop-color \"$accent_color\"/" "$niri_config_file" || rc=1
+
+  if [[ $rc -ne 0 ]]; then
+    log_error "Failed to update niri config"
+    return 1
+  fi
+
+  # The two blocks this patches are switched off in the config it is patching:
+  # focus-ring has width 0 and insert-hint is off, so the accent just written
+  # has no visible effect. Say so rather than leaving it looking applied.
+  if grep -A2 'focus-ring {' "$niri_config_file" | grep -qE '^\s*width 0'; then
+    log_warn "focus-ring width is 0, so the accent is not visible."
+    log_warn "Set it to 2 in niri/config.kdl to see the focus ring."
+  fi
+  if grep -A1 'insert-hint {' "$niri_config_file" | grep -qE '^\s*off'; then
+    log_warn "insert-hint is off, so the accent is not visible there either."
+    log_warn "Remove 'off' from insert-hint in niri/config.kdl to enable it."
+  fi
+
+  log_success "Niri config updated"
 }
 
 update_vscode_theme() {
@@ -613,9 +692,9 @@ main() {
 
   log_info "Detected theme: $detected_theme, variation: $wallpaper_variation"
 
-  # Check if theme/variation changed
+  # Check if the wallpaper, theme or variation changed
   local theme_changed=0
-  if check_theme_changed "$detected_theme" "$wallpaper_variation"; then
+  if check_theme_changed "$detected_theme" "$wallpaper_variation" "$wallpaper_path"; then
     theme_changed=1
   fi
 
@@ -633,11 +712,22 @@ main() {
     matugen_mode="dark"
   fi
 
-  # Only apply themes if theme/variation changed
+  # Only apply themes if the wallpaper, theme or variation changed
   if [[ $theme_changed -eq 1 ]]; then
     set_gtk_theme "$gtk_theme" "$wallpaper_variation" "$icon_theme"
     set_icon_theme "$icon_theme"
-    run_matugen_theme "$matugen_mode" "$wallpaper_path"
+
+    # The state is only saved once the colours are actually known to be new.
+    # Saving it unconditionally meant one failed matugen run was cached as
+    # success, which turned a transient failure into theming staying stale for
+    # that wallpaper until the user picked one from a different scheme folder.
+    if ! run_matugen_theme "$matugen_mode" "$wallpaper_path"; then
+      log_error "Theme generation failed. State not saved, so the next run retries."
+      save_theme_state "$detected_theme" "$wallpaper_variation" ""
+      send_notification "Theme Manager" "Theme Generation Failed" "The wallpaper colours were not applied" "critical" "preferences-desktop-theme"
+      return 1
+    fi
+
     update_niri_config
     update_vscode_theme
 
@@ -653,12 +743,12 @@ main() {
       log_warn "makoctl not available, skipping notification daemon reload"
     fi
 
-    save_theme_state "$detected_theme" "$wallpaper_variation"
+    save_theme_state "$detected_theme" "$wallpaper_variation" "$wallpaper_path"
 
     log_success "Dynamic theme synchronization completed successfully"
     send_notification "Theme Manager" "Theme Synchronization Complete" "" "normal" "preferences-desktop-theme"
   else
-    log_info "Theme unchanged, skipping all theming operations"
+    log_info "Wallpaper and theme unchanged, skipping all theming operations"
     log_success "Wallpaper applied, no theme changes needed"
   fi
 }

@@ -121,7 +121,7 @@
   "format-off": "<span size='14pt'>󰂲</span>",
   "format-disabled": "<span size='14pt'>󰂲</span>",
   "format-connected": "<span size='14pt'>󰂱</span>",
-  "format-no-controller": "span size='14pt'>󰂯</span>",
+  "format-no-controller": "<span size='14pt'>󰂯</span>",
   "tooltip": true,
   "tooltip-format": "{device_enumerate}",
   "tooltip-format-enumerate-connected": "{device_address}",

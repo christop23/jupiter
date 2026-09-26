@@ -4,15 +4,17 @@ return {{
         news = {
             headlines = false,
         },
-        extras = {"lazyvim.plugins.extras.lang.typescript", "lazyvim.plugins.extras.lang.python",
-                  "lazyvim.plugins.extras.lang.json", "lazyvim.plugins.extras.lang.yaml",
-                  "lazyvim.plugins.extras.lang.markdown", "lazyvim.plugins.extras.lang.docker",
-                  "lazyvim.plugins.extras.lang.terraform", "lazyvim.plugins.extras.lang.html",
-                  "lazyvim.plugins.extras.lang.css", "lazyvim.plugins.extras.lang.tailwind",
-                  "lazyvim.plugins.extras.lang.go",
-                  "lazyvim.plugins.extras.lang.clangd", "lazyvim.plugins.extras.lang.prisma",
-                  "lazyvim.plugins.extras.ui.edgy", "lazyvim.plugins.extras.editor.refactoring",
-                  "lazyvim.plugins.extras.util.project"}
+        -- No extras here. The list is in lazyvim.json, which is the file LazyVim
+        -- reads, and there were two of them: this one and that one, with ten
+        -- entries in common and fifteen appearing in only one of the two. The
+        -- effective set was their union, 25 entries, and neither file said so.
+        --
+        -- What the union contained is the other half of the problem. lang.angular,
+        -- lang.prisma, lang.css, lang.html and lang.tailwind are one person's
+        -- web stack, in a niri rice, and each one pulls in a language server and
+        -- a formatter that then have to be installed and kept working. They are
+        -- gone from both files. Add one back in lazyvim.json, and remember the
+        -- matching entry in the mason spec below.
     }
 
 }, {
@@ -22,16 +24,19 @@ return {{
         -- the literal below, once under the Formatters comment and once under
         -- the Linters one, so mason was asked to install the same tool twice on
         -- every fresh machine. vim.list_extend does not check.
+        -- Kept in step with the extras in lazyvim.json. A language server or
+        -- formatter named in formatters_by_ft or linters_by_ft that is missing
+        -- here is a tool that silently never runs, which is how selene,
+        -- htmlhint, stylelint, tflint and typos came to be configured and not
+        -- installed.
         local wanted = { -- Servers
-            "lua-language-server", "pyright", "ruff-lsp", "typescript-language-server", "eslint-lsp",
-            "html-lsp", "css-lsp", "tailwindcss-language-server", "json-lsp", "yaml-language-server",
-            "taplo", "marksman", "gopls", "dockerfile-language-server", "terraform-ls",
-            "prisma-language-server", "clangd",
+            "lua-language-server", "pyright", "ruff-lsp", "typescript-language-server",
+            "json-lsp", "yaml-language-server", "taplo", "marksman", "gopls", "clangd",
             -- Formatters
-            "stylua", "prettierd", "eslint_d", "shfmt", "gofumpt", "goimports", "black", "isort",
-            "clang-format", "tflint", "selene", "stylelint", "htmlhint", "typos",
+            "stylua", "prettierd", "eslint_d", "shfmt", "gofumpt", "goimports",
+            "black", "isort", "clang-format",
             -- Linters
-            "shellcheck", "ruff", "yamllint", "markdownlint", "hadolint",
+            "shellcheck", "ruff", "selene", "yamllint", "markdownlint", "hadolint", "typos",
         }
         local seen = {}
         for _, tool in ipairs(wanted) do
@@ -53,14 +58,10 @@ return {{
             javascriptreact = {"eslint_d"},
             typescriptreact = {"eslint_d"},
             vue = {"eslint_d"},
-            html = {"htmlhint"},
-            css = {"stylelint"},
-            scss = {"stylelint"},
             yaml = {"yamllint"},
             markdown = {"markdownlint"},
             sh = {"shellcheck"},
             dockerfile = {"hadolint"},
-            terraform = {"tflint"},
             ["*"] = {"typos"}
         },
         linters = {
@@ -95,7 +96,6 @@ return {{
             sh = {"shfmt"},
             go = {"gofumpt", "goimports"},
             toml = {"taplo"},
-            terraform = {"terraform_fmt"},
             cpp = {"clang-format"},
             c = {"clang-format"},
             ["*"] = {"trim_whitespace"}

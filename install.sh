@@ -52,6 +52,17 @@ readonly CONFIG_FOLDERS=(
   nvim vicinae gtklock zathura matugen scripts
 )
 
+# Configurations that are a single file in the config directory rather than a
+# folder, so CONFIG_FOLDERS cannot express them: that list symlinks
+# ~/.config/<name> as a directory, and these are files.
+#
+# pavucontrol reads $XDG_CONFIG_HOME/pavucontrol.ini directly, not from a
+# pavucontrol/ subdirectory, which is unusual and is why it needs its own entry
+# rather than a folder. It also only applies a configured size when it is at
+# least as large as its built-in default of 500x400, so the width and height
+# below are a floor and not an exact size.
+readonly CONFIG_FILES=("pavucontrol.ini")
+
 # Optional dependencies that waybar modules depend on
 readonly OPTIONAL_AUDIO_PACKAGES=("pulseaudio" "pipewire-pulse")
 readonly OPTIONAL_BLUETOOTH_PACKAGES=("bluez" "bluez-utils")
@@ -856,6 +867,29 @@ create_backup() {
         ((++backed_up)) || true
       else
         warn "Failed to backup: ${folder}"
+      fi
+    fi
+  done
+
+  # A user's existing single file configuration is replaced by a symlink in
+  # create_symlinks, so it is backed up under its own name here. restore_backup
+  # already works on whatever is in the backup directory by basename, so it
+  # picks these up without needing to know they were files.
+  local file
+  for file in "${CONFIG_FILES[@]}"; do
+    target="${CONFIG_DIR}/${file}"
+    if [[ -e "${target}" ]] || [[ -L "${target}" ]]; then
+      if [[ -L "${target}" ]]; then
+        warn "Symlink detected: ${file} -> $(readlink "${target}")"
+        ((++symlinks_found)) || true
+        rm "${target}"
+        info "Removed symlink: ${file}"
+      elif cp -L "${target}" "${BACKUP_DIR}/" 2> /dev/null; then
+        rm -f "${target}"
+        info "Backed up: ${file}"
+        ((++backed_up)) || true
+      else
+        warn "Failed to backup: ${file}"
       fi
     fi
   done
@@ -2301,6 +2335,7 @@ clone_dotfiles() {
 validate_repo_structure() {
   info "Validating repository structure..."
   local missing_folders=()
+  local missing_files=()
 
   for folder in "${CONFIG_FOLDERS[@]}"; do
     if [[ ! -d "${DOTDIR}/${folder}" ]]; then
@@ -2308,11 +2343,25 @@ validate_repo_structure() {
     fi
   done
 
+  for file in "${CONFIG_FILES[@]}"; do
+    if [[ ! -f "${DOTDIR}/${file}" ]]; then
+      missing_files+=("${file}")
+    fi
+  done
+
   if [[ ${#missing_folders[@]} -gt 0 ]]; then
     warn "The following expected folders are missing from the repository:"
     printf '  - %s\n' "${missing_folders[@]}"
     warn "Installation will continue, but these configurations will be skipped."
-  else
+  fi
+
+  if [[ ${#missing_files[@]} -gt 0 ]]; then
+    warn "The following expected configuration files are missing from the repository:"
+    printf '  - %s\n' "${missing_files[@]}"
+    warn "Installation will continue, but these configurations will be skipped."
+  fi
+
+  if [[ ${#missing_folders[@]} -eq 0 ]] && [[ ${#missing_files[@]} -eq 0 ]]; then
     msg "Repository structure validated."
   fi
 }
@@ -2344,6 +2393,30 @@ create_symlinks() {
       fi
     else
       info "Skipping: ${folder} (not found in repository)"
+      ((++skipped)) || true
+    fi
+  done
+
+  # The same for the single file configurations, which land directly in the
+  # config directory under their own name.
+  local file target
+  for file in "${CONFIG_FILES[@]}"; do
+    if [[ -f "${DOTDIR}/${file}" ]]; then
+      target="${CONFIG_DIR}/${file}"
+
+      if [[ -e "${target}" ]] || [[ -L "${target}" ]]; then
+        warn "Target still exists: ${file} (removing)"
+        rm -f "${target}"
+      fi
+
+      if ln -s "${DOTDIR}/${file}" "${target}" 2>> "${LOG_FILE}"; then
+        info "Linked: ${file}"
+        ((++linked)) || true
+      else
+        error "Failed to link: ${file} (check log for details)"
+      fi
+    else
+      info "Skipping: ${file} (not found in repository)"
       ((++skipped)) || true
     fi
   done

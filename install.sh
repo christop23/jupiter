@@ -265,6 +265,23 @@ error() {
   log "ERROR: $1"
 }
 
+# tee -a onto the log, for a command whose exit status the caller checks.
+#
+# The log is a convenience, so failing to write it must not change the answer.
+# It used to: `cmd 2>&1 | tee -a "${LOG_FILE}"` under pipefail takes tee's exit
+# status when tee fails, so a full disk or an unwritable directory turned a
+# pacman run that had just succeeded into "Failed to install official
+# repository packages" and aborted the install. log() above already survives an
+# unwritable log; this is the same concern for the commands that stream through
+# it.
+#
+# tee's output still reaches the terminal either way, so the visible behaviour
+# is unchanged when the log works. `|| true` is on the tee alone, and the
+# command's own status is what the pipeline then reports.
+log_and_show() {
+  tee -a "${LOG_FILE}" || true
+}
+
 fatal() {
   error "$1"
   error "Installation failed. Check log file: ${LOG_FILE}"
@@ -850,7 +867,7 @@ configure_nvidia() {
 
   info "Installing ${install_list[*]}"
   info "This may take several minutes while the module is compiled..."
-  if sudo pacman -S --needed "${install_list[@]}" < /dev/tty 2>&1 | tee -a "${LOG_FILE}"; then
+  if sudo pacman -S --needed "${install_list[@]}" < /dev/tty 2>&1 | log_and_show "${LOG_FILE}"; then
     INSTALL_NVIDIA=true
     msg "NVIDIA packages installed successfully."
   else
@@ -995,7 +1012,7 @@ restore_backup() {
 
 update_system() {
   info "Updating system packages..."
-  if sudo pacman -Syu < /dev/tty 2>&1 | tee -a "${LOG_FILE}"; then
+  if sudo pacman -Syu < /dev/tty 2>&1 | log_and_show "${LOG_FILE}"; then
     msg "System updated successfully."
   else
     fatal "Failed to update system packages."
@@ -1004,7 +1021,7 @@ update_system() {
 
 install_base_tools() {
   info "Installing base development tools..."
-  if sudo pacman -S --needed git base-devel curl < /dev/tty 2>&1 | tee -a "${LOG_FILE}"; then
+  if sudo pacman -S --needed git base-devel curl < /dev/tty 2>&1 | log_and_show "${LOG_FILE}"; then
     msg "Base tools installed."
   else
     fatal "Failed to install base development tools."
@@ -1028,7 +1045,7 @@ choose_aur_helper() {
       local -a stale_helpers=()
       mapfile -t stale_helpers < <(pacman -Qq 2> /dev/null | grep -E '^yay(-bin)?$' || true)
       if [[ ${#stale_helpers[@]} -gt 0 ]]; then
-        sudo pacman -Rns "${stale_helpers[@]}" < /dev/tty 2>&1 | tee -a "${LOG_FILE}" || true
+        sudo pacman -Rns "${stale_helpers[@]}" < /dev/tty 2>&1 | log_and_show "${LOG_FILE}" || true
       fi
     fi
   fi
@@ -1047,12 +1064,12 @@ install_yay() {
   fi
 
   info "Cloning yay-bin repository (this may take a moment)..."
-  if ! retry_command 3 git clone --depth=1 https://aur.archlinux.org/yay-bin.git "${TEMP_BUILD_DIR}" 2>&1 | tee -a "${LOG_FILE}"; then
+  if ! retry_command 3 git clone --depth=1 https://aur.archlinux.org/yay-bin.git "${TEMP_BUILD_DIR}" 2>&1 | log_and_show "${LOG_FILE}"; then
     fatal "Failed to clone yay-bin repository after multiple attempts."
   fi
 
   info "Building yay-bin package (this may take a few minutes)..."
-  if ! (cd "${TEMP_BUILD_DIR}" && makepkg -si < /dev/tty 2>&1 | tee -a "${LOG_FILE}"); then
+  if ! (cd "${TEMP_BUILD_DIR}" && makepkg -si < /dev/tty 2>&1 | log_and_show "${LOG_FILE}"); then
     fatal "Failed to build and install yay-bin."
   fi
 
@@ -1078,7 +1095,7 @@ check_yay_linkage() {
       local -a stale_helpers=()
       mapfile -t stale_helpers < <(pacman -Qq 2> /dev/null | grep -E '^yay(-bin)?$' || true)
       if [[ ${#stale_helpers[@]} -gt 0 ]]; then
-        sudo pacman -Rns "${stale_helpers[@]}" < /dev/tty 2>&1 | tee -a "${LOG_FILE}" || true
+        sudo pacman -Rns "${stale_helpers[@]}" < /dev/tty 2>&1 | log_and_show "${LOG_FILE}" || true
       fi
       install_yay
     fi
@@ -1105,7 +1122,7 @@ install_pacman_packages() {
   info "Installing official repository packages..."
   info "This may take several minutes..."
 
-  if sudo pacman -S --needed "${PACMAN_TARGETS[@]}" < /dev/tty 2>&1 | tee -a "${LOG_FILE}"; then
+  if sudo pacman -S --needed "${PACMAN_TARGETS[@]}" < /dev/tty 2>&1 | log_and_show "${LOG_FILE}"; then
     msg "Official packages installed successfully."
   else
     fatal "Failed to install official repository packages."
@@ -1840,7 +1857,7 @@ install_aur_packages() {
   info "Installing: ${target_list% }"
   info "This may take several minutes..."
 
-  if "${AUR_HELPER}" -S --needed "${targets[@]}" < /dev/tty 2>&1 | tee -a "${LOG_FILE}"; then
+  if "${AUR_HELPER}" -S --needed "${targets[@]}" < /dev/tty 2>&1 | log_and_show "${LOG_FILE}"; then
     msg "AUR packages installed successfully."
   else
     fatal "Failed to install AUR packages."
@@ -1967,7 +1984,7 @@ configure_greeter() {
   # wants.
   if ! binary_installed tuigreet || ! pacman -Qi greetd &> /dev/null; then
     info "Installing greeter packages..."
-    if sudo pacman -S --needed "${GREETER_PACKAGES[@]}" < /dev/tty 2>&1 | tee -a "${LOG_FILE}"; then
+    if sudo pacman -S --needed "${GREETER_PACKAGES[@]}" < /dev/tty 2>&1 | log_and_show "${LOG_FILE}"; then
       msg "Greeter packages installed successfully."
     else
       fatal "Failed to install greeter packages."
@@ -2034,21 +2051,21 @@ install_colloid_theme() {
   info "Installing Colloid GTK theme..."
   info "Cloning Colloid theme repository (this may take a moment)..."
 
-  if ! retry_command 3 git clone --depth=1 https://github.com/vinceliuice/Colloid-gtk-theme "${theme_dir}" 2>&1 | tee -a "${LOG_FILE}"; then
+  if ! retry_command 3 git clone --depth=1 https://github.com/vinceliuice/Colloid-gtk-theme "${theme_dir}" 2>&1 | log_and_show "${LOG_FILE}"; then
     rm -rf "${theme_dir}"
     warn "Failed to clone Colloid theme repository after multiple attempts."
     return 1
   fi
 
   info "Installing Colloid theme variants..."
-  if ! (cd "${theme_dir}" && ./install.sh --libadwaita --tweaks all rimless 2>&1 | tee -a "${LOG_FILE}"); then
+  if ! (cd "${theme_dir}" && ./install.sh --libadwaita --tweaks all rimless 2>&1 | log_and_show "${LOG_FILE}"); then
     rm -rf "${theme_dir}"
     warn "Failed to install Colloid theme (default variant)."
     return 1
   fi
 
   info "Installing Colloid theme (grey-black variant)..."
-  if ! (cd "${theme_dir}" && ./install.sh --libadwaita --theme grey --tweaks black rimless 2>&1 | tee -a "${LOG_FILE}"); then
+  if ! (cd "${theme_dir}" && ./install.sh --libadwaita --theme grey --tweaks black rimless 2>&1 | log_and_show "${LOG_FILE}"); then
     rm -rf "${theme_dir}"
     warn "Failed to install Colloid theme (grey-black variant)."
     return 1
@@ -2084,14 +2101,14 @@ install_rosepine_theme() {
   info "Installing Rose Pine GTK theme..."
   info "Cloning Rose Pine theme repository (this may take a moment)..."
 
-  if ! retry_command 3 git clone --depth=1 https://github.com/Fausto-Korpsvart/Rose-Pine-GTK-Theme "${theme_dir}" 2>&1 | tee -a "${LOG_FILE}"; then
+  if ! retry_command 3 git clone --depth=1 https://github.com/Fausto-Korpsvart/Rose-Pine-GTK-Theme "${theme_dir}" 2>&1 | log_and_show "${LOG_FILE}"; then
     rm -rf "${theme_dir}"
     warn "Failed to clone Rose Pine theme repository after multiple attempts."
     return 1
   fi
 
   info "Installing Rose Pine theme with moon variant..."
-  if ! (cd "${theme_dir}/themes" && ./install.sh --libadwaita --tweaks moon macos 2>&1 | tee -a "${LOG_FILE}"); then
+  if ! (cd "${theme_dir}/themes" && ./install.sh --libadwaita --tweaks moon macos 2>&1 | log_and_show "${LOG_FILE}"); then
     rm -rf "${theme_dir}"
     warn "Failed to install Rose Pine theme."
     return 1
@@ -2127,14 +2144,14 @@ install_osaka_theme() {
   info "Installing Osaka GTK theme..."
   info "Cloning Osaka theme repository (this may take a moment)..."
 
-  if ! retry_command 3 git clone --depth=1 https://github.com/Fausto-Korpsvart/Osaka-GTK-Theme "${theme_dir}" 2>&1 | tee -a "${LOG_FILE}"; then
+  if ! retry_command 3 git clone --depth=1 https://github.com/Fausto-Korpsvart/Osaka-GTK-Theme "${theme_dir}" 2>&1 | log_and_show "${LOG_FILE}"; then
     rm -rf "${theme_dir}"
     warn "Failed to clone Osaka theme repository after multiple attempts."
     return 1
   fi
 
   info "Installing Osaka theme with solarized variant..."
-  if ! (cd "${theme_dir}/themes" && ./install.sh --libadwaita --tweaks solarized macos 2>&1 | tee -a "${LOG_FILE}"); then
+  if ! (cd "${theme_dir}/themes" && ./install.sh --libadwaita --tweaks solarized macos 2>&1 | log_and_show "${LOG_FILE}"); then
     rm -rf "${theme_dir}"
     warn "Failed to install Osaka theme."
     return 1
@@ -2218,7 +2235,7 @@ install_colloid_icons() {
   info "Installing Colloid icon theme..."
   info "Cloning Colloid icon theme repository (this may take a moment)..."
 
-  if ! retry_command 3 git clone --depth=1 https://github.com/vinceliuice/Colloid-icon-theme "${icons_dir}" 2>&1 | tee -a "${LOG_FILE}"; then
+  if ! retry_command 3 git clone --depth=1 https://github.com/vinceliuice/Colloid-icon-theme "${icons_dir}" 2>&1 | log_and_show "${LOG_FILE}"; then
     rm -rf "${icons_dir}"
     warn "Failed to clone Colloid icon theme repository after multiple attempts."
     return 1
@@ -2226,7 +2243,7 @@ install_colloid_icons() {
 
   info "Installing Colloid icon theme with all schemes (bold)..."
   # -d ensures we install to ~/.icons and do NOT trigger a hidden sudo prompt
-  if ! (cd "${icons_dir}" && ./install.sh -d "${HOME}/.icons" --scheme all --bold 2>&1 | tee -a "${LOG_FILE}"); then
+  if ! (cd "${icons_dir}" && ./install.sh -d "${HOME}/.icons" --scheme all --bold 2>&1 | log_and_show "${LOG_FILE}"); then
     rm -rf "${icons_dir}"
     warn "Failed to install Colloid icon theme."
     return 1
@@ -2328,7 +2345,7 @@ configure_shells() {
 
   if ! binary_installed fish; then
     info "Installing fish..."
-    if sudo pacman -S --needed fish < /dev/tty 2>&1 | tee -a "${LOG_FILE}"; then
+    if sudo pacman -S --needed fish < /dev/tty 2>&1 | log_and_show "${LOG_FILE}"; then
       msg "fish installed successfully."
     else
       warn "Failed to install fish. It may already be installed."
@@ -2369,7 +2386,7 @@ set_default_shell() {
   if [[ -z "${fish_bin}" ]]; then
     warn "fish is not installed. Installing it now..."
 
-    if sudo pacman -S --needed fish < /dev/tty 2>&1 | tee -a "${LOG_FILE}"; then
+    if sudo pacman -S --needed fish < /dev/tty 2>&1 | log_and_show "${LOG_FILE}"; then
       fish_bin="$(command -v fish)" || fish_bin=""
       if [[ -z "${fish_bin}" ]]; then
         error "Failed to locate fish after installation."
@@ -2556,7 +2573,7 @@ clone_or_update_dotfiles() {
         info "Your files are untouched. To update later, deal with the changes first:"
         info "  git -C ${DOTDIR} status"
       fi
-    elif ! retry_command 3 git -C "${DOTDIR}" pull --rebase 2>&1 | tee -a "${LOG_FILE}"; then
+    elif ! retry_command 3 git -C "${DOTDIR}" pull --rebase 2>&1 | log_and_show "${LOG_FILE}"; then
       # Reached only when the checkout is clean, so there is nothing here worth
       # asking about: no modified files, no untracked files and no unpushed
       # commits. The re-clone still stages its copy first, so even this branch
@@ -2583,7 +2600,7 @@ clone_or_update_dotfiles() {
   # one: it is left alone when it turns out not to be a repository.
   if [[ -d "${DOTDIR}/.git" ]]; then
     info "Updating git submodules..."
-    if retry_command 3 git -C "${DOTDIR}" submodule update --init --recursive 2>&1 | tee -a "${LOG_FILE}"; then
+    if retry_command 3 git -C "${DOTDIR}" submodule update --init --recursive 2>&1 | log_and_show "${LOG_FILE}"; then
       msg "Submodules updated."
     else
       warn "Failed to update submodules after retries. Continuing anyway..."
@@ -2614,7 +2631,7 @@ clone_dotfiles() {
   fi
 
   info "Cloning dotfiles repository (this may take a moment)..."
-  if ! retry_command 3 git clone --depth=1 "${REPO_URL}" "${target}" 2>&1 | tee -a "${LOG_FILE}"; then
+  if ! retry_command 3 git clone --depth=1 "${REPO_URL}" "${target}" 2>&1 | log_and_show "${LOG_FILE}"; then
     # Deliberately no rm -rf of ${DOTDIR} here. That is the whole point of the
     # staging: whatever it was is still there, and cleanup_temp_files removes
     # the unusable staged copy on the way out.
@@ -2789,7 +2806,7 @@ create_systemd_services() {
   mkdir -p "${service_dir}"
   create_gtklock_service "${service_dir}"
 
-  systemctl --user daemon-reload 2>&1 | tee -a "${LOG_FILE}" || warn "Failed to reload systemd daemon."
+  systemctl --user daemon-reload 2>&1 | log_and_show "${LOG_FILE}" || warn "Failed to reload systemd daemon."
    
   printf "\n"
   info "gtklock service has been created but NOT enabled by default."

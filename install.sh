@@ -185,6 +185,44 @@ readonly PACMAN_PROVIDER_TESSDATA="tesseract-data-eng"
 readonly PACMAN_PROVIDER_MESA="mesa"
 readonly PACMAN_PROVIDER_SECRETS="gnome-keyring"
 
+# The one place a virtual is mapped to the provider this installer wants, as
+# "<virtual>=<provider>" on separate lines.
+#
+# Three things read it, and they used to be three separate lists that had already
+# drifted apart: the preview shown before the install, the recommendations the
+# resolver offers, and the check that runs afterwards to see which provider
+# actually got installed. Adding a virtual here reaches all three.
+#
+# It is a function rather than a constant because one entry depends on a decision
+# made at run time. opengl-driver is the proprietary driver when the NVIDIA step
+# went in and mesa otherwise, and nvidia-utils is not in PACMAN_PROVIDER_* since
+# it comes from NVIDIA_COMMON_PACKAGES.
+#
+# greetd-greeter is deliberately absent and needs nothing here: the greeter is
+# not among the targets the analyzer walks, so the question never arises, and
+# configure_greeter names greetd-tuigreet in the same pacman call that installs
+# greetd, which is what settles it.
+provider_recommendations() {
+  local line
+
+  for line in \
+    "xdg-desktop-portal-impl=${PACMAN_PROVIDER_PORTAL}" \
+    "jack=${PACMAN_PROVIDER_JACK}" \
+    "pipewire-session-manager=${PACMAN_PROVIDER_WIREPLUMBER}" \
+    "ttf-font=${PACMAN_PROVIDER_FONT}" \
+    "tessdata=${PACMAN_PROVIDER_TESSDATA}" \
+    "org.freedesktop.secrets=${PACMAN_PROVIDER_SECRETS}"
+  do
+    printf '%s\n' "${line}"
+  done
+
+  if [[ "${INSTALL_NVIDIA}" == "true" ]]; then
+    printf 'opengl-driver=nvidia-utils\n'
+  else
+    printf 'opengl-driver=%s\n' "${PACMAN_PROVIDER_MESA}"
+  fi
+}
+
 # Official repository packages
 readonly PACMAN_PACKAGES=(
   niri waybar fish fastfetch mako alacritty starship neovim eza
@@ -1404,20 +1442,17 @@ analyze_virtual_providers() {
   local installed=""
   printf -v installed '%s ' $(pacman -Qq 2> /dev/null || true)
 
-  local recs="xdg-desktop-portal-impl=${PACMAN_PROVIDER_PORTAL}"
-  recs+=",jack=${PACMAN_PROVIDER_JACK}"
-  recs+=",pipewire-session-manager=${PACMAN_PROVIDER_WIREPLUMBER}"
-  recs+=",ttf-font=${PACMAN_PROVIDER_FONT}"
-  recs+=",tessdata=${PACMAN_PROVIDER_TESSDATA}"
-  recs+=",org.freedesktop.secrets=${PACMAN_PROVIDER_SECRETS}"
-  # greetd-greeter has no entry here, and does not need one: the greeter is not
-  # among the targets walked below, so the question never comes up here, and
-  # configure_greeter names greetd-tuigreet in the call that installs it.
-  if [[ "${INSTALL_NVIDIA}" == "true" ]]; then
-    recs+=",opengl-driver=nvidia-utils"
-  else
-    recs+=",opengl-driver=${PACMAN_PROVIDER_MESA}"
-  fi
+  # Recommendations come from the single table in provider_recommendations, so a
+  # provider added there reaches the preview, the resolver and the post-install
+  # check without being written out a second and third time. The three used to be
+  # separate lists and had already drifted: the check named jack2 as a provider
+  # of jack, which it is not.
+  local recs rec_line
+  recs=""
+  while IFS= read -r rec_line; do
+    [[ -z "${rec_line}" ]] && continue
+    recs+="${recs:+,}${rec_line}"
+  done < <(provider_recommendations)
 
   # Seeds and the already-asked list are space joined for the same reason.
   #
@@ -1793,33 +1828,35 @@ report_providers() {
 # hint that an answer matters. So check afterwards which providers actually
 # landed and say so out loud.
 verify_virtual_providers() {
-  # virtual | expected provider. Two fields only, because report_providers reads
-  # the real provider list out of the sync databases rather than being handed a
-  # pattern to match; see installed_provider_index for why that matters. A
-  # hand-written pattern was a snapshot of one repository state and went wrong
-  # in both directions: a provider added later was invisible, and a pattern
-  # naming several alternatives could not say which one won, so it reported the
-  # expected provider as present when it was merely installed alongside the one
-  # that had actually been chosen.
+  # The table is provider_recommendations, the same one the preview and the
+  # resolver read. report_providers takes virtual|expected and reads the real
+  # provider list out of the sync databases, so nothing here is a hand-written
+  # pattern that can rot.
   #
-  # This mirrors the recommendations in preview_virtual_providers, so anything
-  # named there is checked here. The ones reached only from an AUR package are
-  # not in it: those are checked against the answers given, by the AUR step.
-  local -a checks=(
-    "xdg-desktop-portal-impl|${PACMAN_PROVIDER_PORTAL}"
-    "jack|${PACMAN_PROVIDER_JACK}"
-    "ttf-font|${PACMAN_PROVIDER_FONT}"
-    "tessdata|${PACMAN_PROVIDER_TESSDATA}"
-    "pipewire-session-manager|${PACMAN_PROVIDER_WIREPLUMBER}"
-  )
+  # The virtuals reached only from an AUR package are not in it, because their
+  # recommendation depends on metadata fetched at run time rather than on this
+  # table. Those are checked against the answers given, by the AUR step.
+  local entry virtual expected
+  local -a checks=()
 
-  # The opengl driver depends on whether the NVIDIA driver went in, so it is
-  # appended here rather than baked into the table above.
-  if [[ "${INSTALL_NVIDIA}" == "true" ]]; then
-    checks+=("opengl-driver|nvidia-utils")
-  else
-    checks+=("opengl-driver|${PACMAN_PROVIDER_MESA}")
-  fi
+  while IFS= read -r entry; do
+    [[ -z "${entry}" ]] && continue
+    IFS='=' read -r virtual expected <<< "${entry}"
+
+    # org.freedesktop.secrets is in the table for the preview and the resolver,
+    # but it is not checked here. Nothing in PACMAN_PACKAGES wants it: it is
+    # reached only from an AUR package, through vicinae-bin's qtkeychain
+    # dependency, so install_aur_packages is the step that asks about it -- and
+    # that step runs after this one. Checking it here would warn about a
+    # provider the person has not been asked to choose yet, on a machine that
+    # already has one, which is exactly the case this check exists to be quiet
+    # in. The AUR step checks it against the answer given.
+    if [[ "${virtual}" == "org.freedesktop.secrets" ]]; then
+      continue
+    fi
+
+    checks+=("${virtual}|${expected}")
+  done < <(provider_recommendations)
 
   report_providers "${checks[@]}"
 }

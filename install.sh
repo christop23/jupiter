@@ -178,15 +178,30 @@ readonly AUR_PACKAGES=(
 #           it. All of them are offered, since a machine already using one, or
 #           a person who wants one, should not be second-guessed here.
 #   nodejs  nodejs                    3 providers, also wanted by an AUR
-#           package, and with no recommendation. vicinae-bin depends on nodejs
-#           directly, nodejs is a virtual, and its providers are nodejs-lts-iron,
-#           -jod and -krypton. So install_aur_packages asks this one, and a bare
-#           Enter takes the first alphabetically, which is the oldest LTS. That
-#           is the exact failure the rest of this list exists to prevent, and it
-#           is left that way here because which LTS a launcher should be built
-#           against is a preference rather than something this installer can
-#           infer. Add a PACMAN_PROVIDER_NODEJS and a line to
-#           provider_recommendations if you want a default.
+#           package, and deliberately left with no recommendation. vicinae-bin
+#           depends on nodejs directly, nodejs is a virtual, and the providers
+#           the index finds are nodejs-lts-iron, -jod and -krypton. So
+#           install_aur_packages asks this one and Enter takes the first
+#           alphabetically, which is the oldest LTS.
+#
+#           Adding a recommendation here does not work yet, and the reason is
+#           worth knowing before anyone tries. The only sensible answer is
+#           nodejs itself -- it is in extra, it is what pacman installed here,
+#           and it is the current release rather than a dated LTS -- but nodejs
+#           declares %PROVIDES% as empty, so it is not in the index and never
+#           reaches the candidate list. ask_for_provider marks a recommended
+#           provider only when it is one of the listed candidates, and only moves
+#           its default on a listed match, so a recommendation naming an unlisted
+#           package is accepted, recorded, and then silently ignored. Verified
+#           with nodejs=nodejs set and the index left alone: the prompt lists the
+#           three LTS variants, marks nothing, and Enter takes nodejs-lts-iron.
+#
+#           The index has to list a package under its own name first. That is a
+#           separate change with a measured cost -- ten extra questions on a
+#           fresh machine, one of them a 77-option tessdata picker -- and it is
+#           not made here. When it lands, add PACMAN_PROVIDER_NODEJS="nodejs" and
+#           a nodejs line to provider_recommendations, and the existing mechanism
+#           does the rest.
 readonly PACMAN_PROVIDER_PORTAL="xdg-desktop-portal-gnome"
 readonly PACMAN_PROVIDER_JACK="pipewire-jack"
 readonly PACMAN_PROVIDER_WIREPLUMBER="wireplumber"
@@ -1466,16 +1481,28 @@ analyze_virtual_providers() {
     # A seed is normally a real package to walk out from, but a Depends entry
     # can be a bare virtual, and then the walk above never asks about it.
     #
-    # nodejs is the live example. vicinae-bin depends on it, its three providers
-    # are nodejs-lts-iron, -jod and -krypton, and no repository has a package
-    # called nodejs -- so depsby has no entry for it, the walk skips it at the
-    # `cur in depsby` guard, and nothing in the closure names it as a dependency
-    # either, because the AUR package that wants it is not in the sync databases.
+    # nodejs is the live example. vicinae-bin depends on it, and nothing in the
+    # closure names it as a dependency, because the AUR package that wants it is
+    # not in the sync databases. So nothing asks, and pacman picks.
+    #
+    # An earlier version of this comment said there was no package called nodejs
+    # in any repository and that depsby had no entry for it. That was wrong:
+    # nodejs is in extra, and depsby does have an entry, so the walk queues it
+    # and descends through its dependencies. What is actually true is narrower
+    # and is all that matters here: queueing a package as a root is not the same
+    # as asking about it. The walk only asks about a dependency it reaches from
+    # something else, and nothing reaches nodejs, so the seed loop below has to
+    # look at it directly.
+    #
+    # The providers it does find are nodejs-lts-iron, -jod and -krypton. nodejs
+    # itself is not among them, because it declares %PROVIDES% as empty and the
+    # index only reads %PROVIDES%. That is a separate defect, documented where it
+    # is measured rather than fixed here.
     #
     # org.freedesktop.secrets is reached because qtkeychain-qt6 is a real package
     # whose own %DEPENDS% names it. A bare virtual seed has no such package
-    # behind it, so it has to be asked about directly or it is silently dropped
-    # and pacman picks for you.
+    # behind it, so it has to be examined directly or it is silently dropped and
+    # pacman picks for you.
     for (i = 1; i <= ns; i++) {
       s = sl[i]
       if (s == "" || !(s in provby) || (s in emitted)) continue

@@ -1752,17 +1752,28 @@ disable_conflicting_display_managers() {
     fi
 
     if systemctl is-enabled --quiet "${service}.service" &> /dev/null; then
-      if sudo systemctl disable --now "${service}.service" > /dev/null 2>&1; then
+      # Never --now. If this install is being run from inside a GDM/SDDM/LightDM
+      # session then stopping that display manager ends the session, and the
+      # installer with it, at the second to last step with the dotfiles already
+      # in place. Disabling is enough: it is off at the next boot, which is
+      # when greetd needs it to be.
+      if sudo systemctl disable "${service}.service" > /dev/null 2>&1; then
         disabled+=("${service}")
-        msg "Disabled conflicting display manager: ${service}"
+        msg "Disabled conflicting display manager: ${service} (takes effect at next boot)"
       else
-        warn "Could not disable ${service}. Turn it off manually: sudo systemctl disable --now ${service}"
+        warn "Could not disable ${service}. Turn it off manually: sudo systemctl disable ${service}"
       fi
     fi
   done
 
   if [[ ${#disabled[@]} -eq 0 ]]; then
     info "No conflicting display manager is enabled."
+  elif [[ ${#disabled[@]} -gt 0 ]]; then
+    # Without --now the old display manager is still running, and it owns the
+    # session this install may be running inside. Say so rather than letting
+    # the user find out at their next login.
+    info "Log out and back in, or reboot, for the change to take effect."
+    info "Until then the display manager you are logged into is still the one running."
   fi
 }
 

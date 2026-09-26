@@ -8,8 +8,13 @@ spawn-at-startup "sh" "-c" "vicinae server &"
 prefer-no-csd
 screenshot-path "~/Pictures/Screenshots/%Y-%m-%d %H-%M-%S.png"
 
-output "eDP-1" {
-    mode "1920x1080@60.024"
+// The external display. A connector name is hardware-specific: HDMI-A-1 is a
+// motherboard or GPU port, DP-1 and HDMI-A-2 appear once several are present,
+// and a laptop panel is eDP-1. niri logs a warning for an output it cannot find
+// and carries on, so a wrong name here means the mode is never applied rather
+// than a broken config. `niri msg outputs` lists the real ones.
+output "HDMI-A-1" {
+    mode "1920x1080@143.997"
     scale 1
 }
 

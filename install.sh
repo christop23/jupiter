@@ -468,7 +468,7 @@ check_disk_space() {
     warn "You may encounter issues during installation"
     printf "\n"
 
-    local reply
+    local reply=""
     # `|| true` so a closed stdin falls through to the safe default below
     # instead of tripping set -e and aborting the whole install.
     read -r -p "Continue anyway? (y/N): " reply < /dev/tty || true
@@ -495,8 +495,18 @@ check_sudo() {
   fi
 
   (
+    # -n so this can never prompt: a background job that inherits the script's
+    # stdin would read a line of the script itself when the timestamp expires,
+    # which is the failure the usermod-instead-of-chsh change exists to avoid.
+    # It also exits rather than looping once sudo is no longer available.
+    #
+    # trap - ERR because set -E makes the ERR trap inherit into this subshell,
+    # and without sudo a failing `sudo -n -v` would otherwise fire the trap
+    # here, printing an error about line 497 and running offer_restore on a
+    # read < /dev/tty inside a background process.
+    trap - ERR
     while true; do
-      sudo -v
+      sudo -n -v || exit 0
       sleep 50
     done
   ) &
@@ -559,7 +569,7 @@ check_optional_dependencies() {
     printf "  • Waybar modules may show errors on first launch until backends are installed\n"
     printf "\n"
 
-    local reply
+    local reply=""
     read -r -p "Continue installation without these optional dependencies? (Y/n): " reply < /dev/tty || true
     printf "\n"
 
@@ -578,9 +588,14 @@ has_nvidia_gpu() {
   # Only display-class devices count, so an NVIDIA network card is not a
   # false positive.
   if command -v lspci &> /dev/null; then
+    # One pass, and no -q on the last grep: `grep -q` exits at the first match
+    # without draining the pipe, so the upstream grep took EPIPE and exited 141,
+    # and pipefail reported that as the pipeline's status. On a hybrid laptop
+    # where the dGPU is enumerated before the iGPU that is a false negative on
+    # the one machine most likely to want the proprietary driver.
     lspci 2> /dev/null |
       grep -iE '(VGA compatible controller|3D controller|Display controller)' |
-      grep -qi 'nvidia'
+      grep -i 'nvidia' > /dev/null
     return $?
   fi
 
@@ -798,7 +813,7 @@ configure_nvidia() {
   printf "    ${CYAN}yay -S nvidia-580xx-dkms${NC}\n"
   printf "\n"
 
-  local reply
+  local reply=""
   # `|| true` so a closed stdin counts as "no" rather than tripping set -e
   # and aborting the whole install through the ERR trap.
   read -r -p "Install an NVIDIA driver? (y/N): " reply < /dev/tty || true
@@ -861,6 +876,13 @@ create_backup() {
   local backed_up=0
   local symlinks_found=0
 
+  # Populated by basename whenever a copy fails, and read back by
+  # create_symlinks to refuse the removal that would otherwise destroy the only
+  # remaining copy. cp -rL fails on a single dangling symlink, a symlink loop, a
+  # socket or a full disk, and the target was being rm -rf'd three steps later
+  # regardless, which left the user with neither the config nor a backup.
+  BACKUP_FAILED=()
+
   for folder in "${CONFIG_FOLDERS[@]}"; do
     local target="${CONFIG_DIR}/${folder}"
     if [[ -e "${target}" ]] || [[ -L "${target}" ]]; then
@@ -877,6 +899,8 @@ create_backup() {
         ((++backed_up)) || true
       else
         warn "Failed to backup: ${folder}"
+        warn "It will be left in place rather than deleted, so nothing is lost."
+        BACKUP_FAILED+=("${folder}")
       fi
     fi
   done
@@ -900,6 +924,8 @@ create_backup() {
         ((++backed_up)) || true
       else
         warn "Failed to backup: ${file}"
+        warn "It will be left in place rather than deleted, so nothing is lost."
+        BACKUP_FAILED+=("${file}")
       fi
     fi
   done
@@ -924,7 +950,7 @@ offer_restore() {
     printf "  %s\n" "${BACKUP_DIR}"
     printf "\n"
 
-    local reply
+    local reply=""
     read -r -p "Would you like to restore your backup now? (y/N): " reply < /dev/tty || true
     printf "\n"
 
@@ -982,7 +1008,15 @@ choose_aur_helper() {
       return 0
     else
       warn "yay is installed but broken (likely due to pacman/libalpm upgrade). Reinstalling..."
-      sudo pacman -Rns yay yay-bin < /dev/tty 2>&1 | tee -a "${LOG_FILE}" || true
+      # Only the names pacman actually has. `yay` is a virtual provided by
+      # yay-bin, so naming both made pacman abort the whole removal with
+      # "target not found" and remove nothing, and the || true hid that, so
+      # the reinstall below then wrote over a package pacman thought was fine.
+      local -a stale_helpers=()
+      mapfile -t stale_helpers < <(pacman -Qq 2> /dev/null | grep -E '^yay(-bin)?$' || true)
+      if [[ ${#stale_helpers[@]} -gt 0 ]]; then
+        sudo pacman -Rns "${stale_helpers[@]}" < /dev/tty 2>&1 | tee -a "${LOG_FILE}" || true
+      fi
     fi
   fi
 
@@ -1024,7 +1058,15 @@ check_yay_linkage() {
   if command -v yay &> /dev/null; then
     if ldd "$(command -v yay)" | grep -q "not found"; then
       warn "Detected broken shared library linkage in yay. Reinstalling."
-      sudo pacman -Rns yay yay-bin < /dev/tty 2>&1 | tee -a "${LOG_FILE}" || true
+      # Only the names pacman actually has. `yay` is a virtual provided by
+      # yay-bin, so naming both made pacman abort the whole removal with
+      # "target not found" and remove nothing, and the || true hid that, so
+      # the reinstall below then wrote over a package pacman thought was fine.
+      local -a stale_helpers=()
+      mapfile -t stale_helpers < <(pacman -Qq 2> /dev/null | grep -E '^yay(-bin)?$' || true)
+      if [[ ${#stale_helpers[@]} -gt 0 ]]; then
+        sudo pacman -Rns "${stale_helpers[@]}" < /dev/tty 2>&1 | tee -a "${LOG_FILE}" || true
+      fi
       install_yay
     fi
   fi
@@ -1036,6 +1078,16 @@ install_pacman_packages() {
   analyze_virtual_providers
   preview_virtual_providers
   resolve_virtual_providers
+
+  # drop_installed_targets removes anything pacman already has, so on a machine
+  # that already runs most of this stack the list comes back empty. pacman exits
+  # 1 with "no targets specified" in that case, which under pipefail reached the
+  # fatal below and killed the install on the very re-run the rest of this file
+  # goes to such lengths to support.
+  if [[ ${#PACMAN_TARGETS[@]} -eq 0 ]]; then
+    msg "Every requested package is already installed, nothing to do."
+    return 0
+  fi
 
   info "Installing official repository packages..."
   info "This may take several minutes..."
@@ -1290,9 +1342,19 @@ analyze_virtual_providers() {
   fi
 
   # Seeds and the already-asked list are space joined for the same reason.
+  #
+  # Seeds given as arguments are remembered, because resolve_virtual_providers
+  # re-runs this analysis once per round to catch the follow-up rows an answer
+  # surfaces, and it calls it with no arguments. Without this the AUR step's
+  # seeds survived only the first round, so from round two the walk started from
+  # the providers chosen so far and anything reachable only through an AUR
+  # dependency was never reported. The five round loop silently degraded to one.
   local seeds=""
   if [[ $# -gt 0 ]]; then
     printf -v seeds '%s ' "$@"
+    ANALYZER_SEEDS=("${@}")
+  elif [[ ${#ANALYZER_SEEDS[@]} -gt 0 ]]; then
+    printf -v seeds '%s ' "${ANALYZER_SEEDS[@]}"
   fi
 
   # `|| true` so a missing tar or awk degrades to no report instead of
@@ -1307,6 +1369,15 @@ analyze_virtual_providers() {
 # Tab separated analysis of the current target list, refreshed by
 # analyze_virtual_providers. Empty when the sync databases are unreadable.
 PROVIDER_REPORT=""
+
+# Seeds the current analysis was started from, so the per-round re-analysis
+# inside resolve_virtual_providers walks the same set rather than only what the
+# previous round's answers happened to reach.
+ANALYZER_SEEDS=()
+
+# Basenames whose backup copy failed in create_backup, read by create_symlinks
+# so it leaves those in place instead of deleting the only remaining copy.
+BACKUP_FAILED=()
 
 # Virtuals already put to the user, space separated, and read by the analyzer to
 # keep a question from being asked twice. Unlike the report above this survives
@@ -1520,7 +1591,10 @@ ask_for_provider() {
   if [[ -z "${choice}" ]]; then
     choice="${default}"
   elif [[ ! "${choice}" =~ ^[0-9]+$ ]] ||
-    (( choice < 1 || choice > count )); then
+    # 10# so a leading zero is not read as octal: "08" and "09" are not valid
+    # octal, and bash prints a "value too great for base" error to stderr
+    # before the || recovers with the default.
+    (( 10#${choice} < 1 || 10#${choice} > count )); then
     warn "'${choice}' is not one of 1-${count}, taking ${providers[default - 1]}."
     choice="${default}"
   fi
@@ -1737,17 +1811,28 @@ disable_conflicting_display_managers() {
     fi
 
     if systemctl is-enabled --quiet "${service}.service" &> /dev/null; then
-      if sudo systemctl disable --now "${service}.service" > /dev/null 2>&1; then
+      # Never --now. If this install is being run from inside a GDM/SDDM/LightDM
+      # session then stopping that display manager ends the session, and the
+      # installer with it, at the second to last step with the dotfiles already
+      # in place. Disabling is enough: it is off at the next boot, which is
+      # when greetd needs it to be.
+      if sudo systemctl disable "${service}.service" > /dev/null 2>&1; then
         disabled+=("${service}")
-        msg "Disabled conflicting display manager: ${service}"
+        msg "Disabled conflicting display manager: ${service} (takes effect at next boot)"
       else
-        warn "Could not disable ${service}. Turn it off manually: sudo systemctl disable --now ${service}"
+        warn "Could not disable ${service}. Turn it off manually: sudo systemctl disable ${service}"
       fi
     fi
   done
 
   if [[ ${#disabled[@]} -eq 0 ]]; then
     info "No conflicting display manager is enabled."
+  elif [[ ${#disabled[@]} -gt 0 ]]; then
+    # Without --now the old display manager is still running, and it owns the
+    # session this install may be running inside. Say so rather than letting
+    # the user find out at their next login.
+    info "Log out and back in, or reboot, for the change to take effect."
+    info "Until then the display manager you are logged into is still the one running."
   fi
 }
 
@@ -1806,7 +1891,7 @@ configure_greeter() {
   printf "  • The greeter starts niri after you log in\n"
   printf "\n"
 
-  local reply
+  local reply=""
   # `|| true` so a closed stdin counts as "no" rather than tripping set -e
   # and aborting the install at the last step through the ERR trap.
   read -r -p "Install and enable the greetd + tuigreet greeter? (Y/n): " reply < /dev/tty || true
@@ -2040,13 +2125,22 @@ install_gtk_themes() {
   fi
 
   if [[ ${#failed_themes[@]} -gt 0 ]]; then
-    warn "Failed to install ${#failed_themes[@]} GTK theme(s): ${failed_themes[*]}"
+    # "${failed_themes[*]}" alone joins with the first character of IFS, which
+    # line 4 sets to $'\n\t', so it printed one theme per line inside a single
+    # warn and, because log() uses $*, as a multi-line log entry.
+    local joined_failed_themes
+    joined_failed_themes="$(IFS=' ' ; echo "${failed_themes[*]}")"
+    warn "Failed to install ${#failed_themes[@]} GTK theme(s): ${joined_failed_themes}"
     warn "You can manually install these themes later if needed."
   fi
 
+  # A theme is cosmetic. Returning 1 here reached the ERR trap through set -e
+  # and killed an install that had not yet reached the dotfiles, over a GitHub
+  # outage while cloning a stylesheet. The failure is already reported above and
+  # the install carries on without it.
   if [[ ${#installed_themes[@]} -eq 0 ]]; then
-    error "All GTK themes failed to install."
-    return 1
+    warn "No GTK themes were installed. The desktop will use the default theme."
+    warn "theme-sync.sh will report this until a theme is installed by hand."
   fi
 
   return 0
@@ -2111,13 +2205,18 @@ install_icon_themes() {
   fi
 
   if [[ ${#failed_icons[@]} -gt 0 ]]; then
-    warn "Failed to install ${#failed_icons[@]} icon theme(s): ${failed_icons[*]}"
+    # joined explicitly for the same reason as the themes above: [*] would
+    # otherwise join on newline.
+    local joined_failed_icons
+    joined_failed_icons="$(IFS=' ' ; echo "${failed_icons[*]}")"
+    warn "Failed to install ${#failed_icons[@]} icon theme(s): ${joined_failed_icons}"
     warn "You can manually install these icon themes later if needed."
   fi
 
+  # Cosmetic, and nothing downstream depends on it, so this warns rather than
+  # returning 1 into the ERR trap.
   if [[ ${#installed_icons[@]} -eq 0 ]]; then
-    error "All icon themes failed to install."
-    return 1
+    warn "No icon themes were installed. The desktop will use the default icons."
   fi
 
   return 0
@@ -2207,14 +2306,18 @@ set_default_shell() {
   local current_shell=""
   current_shell="$(current_login_shell)"
 
+  # `command -v` exits non-zero when fish is absent, and a variable assignment
+  # whose command substitution fails is itself a simple command, so under set -e
+  # the bare form aborted the installer here and the fish-absent path below
+  # could never run. `|| :` keeps the assignment successful either way.
   local fish_bin
-  fish_bin="$(command -v fish)"
+  fish_bin="$(command -v fish)" || fish_bin=""
 
   if [[ -z "${fish_bin}" ]]; then
     warn "fish is not installed. Installing it now..."
 
     if sudo pacman -S --needed fish < /dev/tty 2>&1 | tee -a "${LOG_FILE}"; then
-      fish_bin="$(command -v fish)"
+      fish_bin="$(command -v fish)" || fish_bin=""
       if [[ -z "${fish_bin}" ]]; then
         error "Failed to locate fish after installation."
         return 0
@@ -2530,6 +2633,16 @@ create_symlinks() {
         fatal "Path validation failed: CONFIG_DIR or target is empty"
       fi
 
+      # A config whose backup failed is still the user's only copy, so it is
+      # left alone and reported rather than removed. Replacing it with a
+      # symlink into the repository would destroy it.
+      if printf '%s\n' "${BACKUP_FAILED[@]:-}" | grep -qxF -- "${folder}"; then
+        warn "Keeping existing ${folder}: its backup failed earlier, so this is the only copy."
+        warn "Not linking ${folder}. Move it aside by hand if you want the dotfiles version."
+        ((++skipped)) || true
+        continue
+      fi
+
       if [[ -e "${target}" ]] || [[ -L "${target}" ]]; then
         warn "Target still exists: ${folder} (removing)"
         rm -rf "${target}"
@@ -2553,6 +2666,13 @@ create_symlinks() {
   for file in "${CONFIG_FILES[@]}"; do
     if [[ -f "${DOTDIR}/${file}" ]]; then
       target="${CONFIG_DIR}/${file}"
+
+      if printf '%s\n' "${BACKUP_FAILED[@]:-}" | grep -qxF -- "${file}"; then
+        warn "Keeping existing ${file}: its backup failed earlier, so this is the only copy."
+        warn "Not linking ${file}. Move it aside by hand if you want the dotfiles version."
+        ((++skipped)) || true
+        continue
+      fi
 
       if [[ -e "${target}" ]] || [[ -L "${target}" ]]; then
         warn "Target still exists: ${file} (removing)"
@@ -2854,7 +2974,14 @@ parse_arguments() {
 # ==========================
 
 trap 'cleanup_on_error ${LINENO}' ERR
-trap 'cleanup_on_exit' EXIT INT TERM
+# INT and TERM get their own handlers that exit. cleanup_on_exit is a plain
+# cleanup function, and bash resumes at the next command after a trap handler
+# returns, so sharing EXIT's handler with them meant a single Ctrl-C during
+# `pacman -Syu` killed pacman, ran the cleanup, and then carried on with the
+# rest of the install minus the sudo keepalive.
+trap 'cleanup_on_exit' EXIT
+trap 'cleanup_on_exit; exit 130' INT
+trap 'cleanup_on_exit; exit 143' TERM
 
 parse_arguments "$@"
 main

@@ -649,31 +649,6 @@ update_niri_config() {
   log_success "Niri config updated"
 }
 
-update_vscode_theme() {
-  local -r vscode_settings_file="$HOME/.config/Code/User/settings.json"
-  local theme
-
-  if [[ ! -f "$vscode_settings_file" ]]; then
-    log_warn "VSCode settings file not found, skipping theme update"
-    return
-  fi
-
-  if [[ "$WALLPAPER_VARIATION" == "light" ]]; then
-    theme="Light Modern"
-  else
-    theme="Dark Modern"
-  fi
-
-  log_info "Updating VSCode theme to: $theme"
-
-  if ! sed -i "s/\"workbench.colorTheme\": \".*\"/\"workbench.colorTheme\": \"$theme\"/" "$vscode_settings_file"; then
-    log_error "Failed to update VSCode theme with sed"
-    return 1
-  fi
-
-  log_success "VSCode theme updated successfully"
-}
-
 main() {
   log_info "Starting dynamic theme synchronization"
 
@@ -738,7 +713,6 @@ main() {
     fi
 
     update_niri_config
-    update_vscode_theme
 
     if command -v vicinae > /dev/null 2>&1; then
       vicinae theme set matugen || log_warn "Failed to set vicinae theme"

@@ -261,9 +261,11 @@ window-rule {
     open-floating true
 }
 
+// Open-maximized. A window rule for an application that is never launched is a
+// rule that cannot be tested, so this list holds only what is in the package
+// list.
 window-rule {
     match app-id=r#"librewolf"#
-    match app-id=r#"code"#
     open-maximized true
 }
 

@@ -975,6 +975,51 @@ build_pacman_targets() {
   if [[ "${INSTALL_GREETER}" == "true" ]]; then
     PACMAN_TARGETS+=("${GREETER_PACKAGES[@]}")
   fi
+
+  drop_installed_targets
+}
+
+# Removes targets that are already installed. Every pacman call here passes
+# --needed, so pacman would skip them anyway; dropping them first keeps the
+# work out of the transaction entirely, which is what makes the provider
+# analysis below cheap on a machine that already has most of this stack.
+#
+# It also stops the provider questions from firing over a package that is
+# already there. A virtual stays satisfied by an installed provider, so the
+# row is reported as decided rather than asked about.
+drop_installed_targets() {
+  local -a kept=()
+  local -a installed=()
+  local pkg
+
+  # `|| true` because pacman -Qq fails on an empty database, and an empty
+  # result just means nothing is filtered.
+  mapfile -t installed < <(pacman -Qq 2> /dev/null || true)
+
+  if [[ ${#installed[@]} -eq 0 ]]; then
+    return 0
+  fi
+
+  # One lookup table beats a linear scan per target, and the lists here are
+  # long enough for that to matter.
+  declare -A is_installed=()
+  for pkg in "${installed[@]}"; do
+    is_installed["${pkg}"]=1
+  done
+
+  for pkg in "${PACMAN_TARGETS[@]}"; do
+    if [[ -n "${is_installed[${pkg}]:-}" ]]; then
+      continue
+    fi
+    kept+=("${pkg}")
+  done
+
+  local -i dropped=$((${#PACMAN_TARGETS[@]} - ${#kept[@]}))
+  PACMAN_TARGETS=("${kept[@]}")
+
+  if (( dropped > 0 )); then
+    info "${dropped} target(s) already installed, left out of the transaction."
+  fi
 }
 
 # Walks the sync databases and reports every dependency that has more than one
@@ -1005,7 +1050,11 @@ analyze_virtual_providers() {
       if (a[i] == "") continue
       provby[a[i]] = (a[i] in provby) ? provby[a[i]] "," name : name
     }
-    if (name in isexplicit) {
+    # A dependency is already decided when an explicit target provides it, or
+    # when a package already on the system does. The second case is what keeps
+    # a re-run on a configured machine from asking questions about providers it
+    # already has, since those targets were dropped before the analysis.
+    if (name in isexplicit || name in isinstalled) {
       satisfied[name] = 1
       for (i = 1; i <= n; i++) if (a[i] != "") satisfied[a[i]] = 1
     }
@@ -1025,6 +1074,8 @@ analyze_virtual_providers() {
     FS = "\n"; total = 0; open = 0
     nt = split(targets, tl, " ")
     for (i = 1; i <= nt; i++) if (tl[i] != "") isexplicit[tl[i]] = 1
+    ni = split(installed, il, " ")
+    for (i = 1; i <= ni; i++) if (il[i] != "") isinstalled[il[i]] = 1
   }
   /^%NAME%$/ { flush(); sect = "NAME"; next }
   /^%[A-Z]+%$/ { sect = $0; sub(/^%/, "", sect); sub(/%$/, "", sect); next }
@@ -1091,6 +1142,13 @@ analyze_virtual_providers() {
   local targets=""
   printf -v targets '%s ' "${PACMAN_TARGETS[@]}"
 
+  # The installed set is passed in so a dependency already satisfied by
+  # something on the system counts as decided. Without it a second run on a
+  # configured machine asks about every provider again, because the targets
+  # that would have answered those questions were dropped as already present.
+  local installed=""
+  printf -v installed '%s ' $(pacman -Qq 2> /dev/null || true)
+
   local recs="xdg-desktop-portal-impl=${PACMAN_PROVIDER_PORTAL}"
   recs+=",jack=${PACMAN_PROVIDER_JACK}"
   recs+=",pipewire-session-manager=${PACMAN_PROVIDER_WIREPLUMBER}"
@@ -1107,7 +1165,8 @@ analyze_virtual_providers() {
   # aborting the install.
   PROVIDER_REPORT="$(for db in "${dbs[@]}"; do
     tar -xzOf "${db}" 2> /dev/null || true
-  done | awk -v targets="${targets}" -v recs="${recs}" "${program}")" || true
+  done | awk -v targets="${targets}" -v recs="${recs}" \
+    -v installed="${installed}" "${program}")" || true
 }
 
 # Tab separated analysis of the current target list, refreshed by

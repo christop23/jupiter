@@ -1535,7 +1535,10 @@ ask_for_provider() {
   if [[ -z "${choice}" ]]; then
     choice="${default}"
   elif [[ ! "${choice}" =~ ^[0-9]+$ ]] ||
-    (( choice < 1 || choice > count )); then
+    # 10# so a leading zero is not read as octal: "08" and "09" are not valid
+    # octal, and bash prints a "value too great for base" error to stderr
+    # before the || recovers with the default.
+    (( 10#${choice} < 1 || 10#${choice} > count )); then
     warn "'${choice}' is not one of 1-${count}, taking ${providers[default - 1]}."
     choice="${default}"
   fi

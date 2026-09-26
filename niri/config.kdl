@@ -67,14 +67,15 @@ binds {
     // Application Shortcuts
     MOD+RETURN                          hotkey-overlay-title="Open Terminal: alacritty" { spawn-sh "alacritty"; }
     MOD+SHIFT+Q                         hotkey-overlay-title="Lock Screen: gtklock" { spawn-sh "gtklock"; }
-    MOD+A                               hotkey-overlay-title="Open App Launcher: vicinae" { spawn-sh "vicinae toggle"; }
+    MOD+SPACE                            hotkey-overlay-title="Open App Launcher: vicinae" { spawn-sh "vicinae toggle"; }
     MOD+B                               hotkey-overlay-title="Open Browser: librewolf" { spawn-sh "librewolf"; }
     MOD+E                               hotkey-overlay-title="File Manager: Thunar" { spawn-sh "thunar"; }
     MOD+W                               hotkey-overlay-title="Open Wallpaper Selector" { spawn-sh "$HOME/.config/scripts/bgselector.sh"; }
     // The power menu was reachable only from the waybar module, so it was
     // unusable without a pointer. P is free in the single-key column, as are
-    // D G I N O R U V X Y Z. The hjkl pairs further down are deliberate and sit
-    // alongside the arrow forms rather than replacing them.
+    // A D G I N O R U V X Y Z -- A freed up when the launcher moved to
+    // MOD+SPACE. The hjkl pairs further down are deliberate and sit alongside the
+    // arrow forms rather than replacing them.
     MOD+P                               hotkey-overlay-title="Open Power Menu" { spawn-sh "$HOME/.config/scripts/powermenu.sh"; }
 
     // Window Management

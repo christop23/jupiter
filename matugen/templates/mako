@@ -38,7 +38,9 @@ max-visible=5
 layer=overlay
 anchor=top-right
 
-default-timeout=5000
+# default-timeout is set once at the top and not repeated here. It was, with the
+# same value, and a duplicate key in one group is a trap: the parser takes the
+# last, so editing one copy and not the other appears to do nothing.
 ignore-timeout=0
 
 [app-name=Volume]

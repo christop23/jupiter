@@ -861,6 +861,13 @@ create_backup() {
   local backed_up=0
   local symlinks_found=0
 
+  # Populated by basename whenever a copy fails, and read back by
+  # create_symlinks to refuse the removal that would otherwise destroy the only
+  # remaining copy. cp -rL fails on a single dangling symlink, a symlink loop, a
+  # socket or a full disk, and the target was being rm -rf'd three steps later
+  # regardless, which left the user with neither the config nor a backup.
+  BACKUP_FAILED=()
+
   for folder in "${CONFIG_FOLDERS[@]}"; do
     local target="${CONFIG_DIR}/${folder}"
     if [[ -e "${target}" ]] || [[ -L "${target}" ]]; then
@@ -877,6 +884,8 @@ create_backup() {
         ((++backed_up)) || true
       else
         warn "Failed to backup: ${folder}"
+        warn "It will be left in place rather than deleted, so nothing is lost."
+        BACKUP_FAILED+=("${folder}")
       fi
     fi
   done
@@ -900,6 +909,8 @@ create_backup() {
         ((++backed_up)) || true
       else
         warn "Failed to backup: ${file}"
+        warn "It will be left in place rather than deleted, so nothing is lost."
+        BACKUP_FAILED+=("${file}")
       fi
     fi
   done
@@ -1307,6 +1318,10 @@ analyze_virtual_providers() {
 # Tab separated analysis of the current target list, refreshed by
 # analyze_virtual_providers. Empty when the sync databases are unreadable.
 PROVIDER_REPORT=""
+
+# Basenames whose backup copy failed in create_backup, read by create_symlinks
+# so it leaves those in place instead of deleting the only remaining copy.
+BACKUP_FAILED=()
 
 # Virtuals already put to the user, space separated, and read by the analyzer to
 # keep a question from being asked twice. Unlike the report above this survives
@@ -2530,6 +2545,16 @@ create_symlinks() {
         fatal "Path validation failed: CONFIG_DIR or target is empty"
       fi
 
+      # A config whose backup failed is still the user's only copy, so it is
+      # left alone and reported rather than removed. Replacing it with a
+      # symlink into the repository would destroy it.
+      if printf '%s\n' "${BACKUP_FAILED[@]:-}" | grep -qxF -- "${folder}"; then
+        warn "Keeping existing ${folder}: its backup failed earlier, so this is the only copy."
+        warn "Not linking ${folder}. Move it aside by hand if you want the dotfiles version."
+        ((++skipped)) || true
+        continue
+      fi
+
       if [[ -e "${target}" ]] || [[ -L "${target}" ]]; then
         warn "Target still exists: ${folder} (removing)"
         rm -rf "${target}"
@@ -2553,6 +2578,13 @@ create_symlinks() {
   for file in "${CONFIG_FILES[@]}"; do
     if [[ -f "${DOTDIR}/${file}" ]]; then
       target="${CONFIG_DIR}/${file}"
+
+      if printf '%s\n' "${BACKUP_FAILED[@]:-}" | grep -qxF -- "${file}"; then
+        warn "Keeping existing ${file}: its backup failed earlier, so this is the only copy."
+        warn "Not linking ${file}. Move it aside by hand if you want the dotfiles version."
+        ((++skipped)) || true
+        continue
+      fi
 
       if [[ -e "${target}" ]] || [[ -L "${target}" ]]; then
         warn "Target still exists: ${file} (removing)"

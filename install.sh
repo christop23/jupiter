@@ -196,10 +196,39 @@ readonly AUR_PACKAGES=(
 #           with nodejs=nodejs set and the index left alone: the prompt lists the
 #           three LTS variants, marks nothing, and Enter takes nodejs-lts-iron.
 #
-#           The index has to list a package under its own name first. That is a
-#           separate change with a measured cost -- ten extra questions on a
-#           fresh machine, one of them a 77-option tessdata picker -- and it is
-#           not made here. When it lands, add PACMAN_PROVIDER_NODEJS="nodejs" and
+#           The index has to list a package under its own name first, and that
+#           change is bigger than it looks. It is not a matter of surfacing more
+#           ambiguous dependencies: the sonames it appears to fix were never
+#           missing. libcrypt.so, libxml2.so and libxtables.so are each indexed
+#           with two or more providers right now, and multilib_only correctly
+#           declines to suppress them, so those rows were always eligible to be
+#           emitted. They are absent because the walk never reaches pam,
+#           libarchive or iproute2.
+#
+#           What the own-name index actually changes is where the walk descends.
+#           When a virtual is undecided the walk continues through pl[1], and
+#           today pl[1] is whichever provider the database happened to list
+#           first, which for these is the alternative implementation rather than
+#           the package of the same name:
+#
+#             zlib              pl[1] = zlib-ng-compat        -> zlib
+#             mesa              pl[1] = mesa-amber            -> mesa
+#             ca-certificates   pl[1] = ca-certificates-utils-> ca-certificates
+#             pinentry          pl[1] = pinentry-bemenu       -> pinentry
+#
+#           So the walk currently explores a branch the user probably would not
+#           have chosen, and indexing the own name moves it to the branch pacman
+#           would take. That is the actual argument for the change, and it is a
+#           good one. The cost side is that re-rooting the walk changes the whole
+#           transitive closure that gets explored, so the row count moves for
+#           indirect reasons: 7 rows become 17, and the number actually asked on
+#           a machine that has never run this installer goes from 2 to 11. An
+#           earlier version of this comment called that "ten extra questions" and
+#           named tessdata as a 77-option picker. Both wrong. tessdata is 128
+#           candidates and is pinned, not asked, because tesseract-data-eng is
+#           already an explicit target.
+#
+#           Not made here. When it lands, add PACMAN_PROVIDER_NODEJS="nodejs" and
 #           a nodejs line to provider_recommendations, and the existing mechanism
 #           does the rest.
 readonly PACMAN_PROVIDER_PORTAL="xdg-desktop-portal-gnome"

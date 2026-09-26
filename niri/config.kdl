@@ -268,52 +268,49 @@ window-rule {
 }
 
 // File dialogs - Open/Save/Select
+//
+// `fixed`, not `proportion 0.0`: a proportion is a fraction of the work area,
+// so 0.0 is a zero-width column and the dialog is invisible. max-width is only
+// a cap, so it does not make up for it.
 window-rule {
     match title=r#".*(Open|Save|Select).*"#
     open-floating true
-    default-column-width { proportion 0.0; }
+    default-column-width { fixed 800; }
     max-width 800
     max-height 1000
 }
 
-window-rule {
-    match title=r#".*File.*"#
-    open-floating true
-    default-column-width { proportion 0.0; }
-    max-width 800
-    max-height 1000
-}
-
+// The app-id match is the reliable one. A title of ".*File.*" also matches
+// every browser tab with a file:// in it and every editor window with File in
+// the title, all of which then float at 800px.
 window-rule {
     match app-id=r#"org\.gtk\.FileChooserDialog"#
+    match app-id=r#"org\.gtk\.FileChooserNative"#
     open-floating true
-    default-column-width { proportion 0.0; }
+    default-column-width { fixed 800; }
     max-width 800
     max-height 1000
 }
 
+// LibreWolf's sign-in and account pages, which are otherwise full width.
 window-rule {
-    match title=r#".*Sign in - Google Accounts — LibreWolf"#
+    match app-id=r#"librewolf"#
+    match title=r#".*(Sign in|Google Accounts).*"#
     open-floating true
 }
 
-// System dialogs
+// System dialogs. Anchored to the start of the title rather than matched
+// anywhere in it: unanchored, "Settings" floats every settings window on the
+// machine, which is most applications' largest window.
 window-rule {
-    match title=r#".*(Dialog|Properties|Preferences|Settings|Rename).*"#
+    match title=r#"^(Dialog|Properties|Preferences|Settings|Rename)\b.*"#
     open-floating true
 }
 
-window-rule {
-    match app-id=r#"zenity"#
-    open-floating true
-}
-
-// Authentication dialogs
-window-rule {
-    match app-id=r#"org\.kde\.polkit-kde-authentication-agent-1"#
-    open-floating true
-}
-
+// Authentication dialogs. The agent this starts is polkit-gnome (see the
+// spawn line at the top of this file), so there is no KDE agent to match here;
+// the title rule below covers every agent including that one, and the generic
+// .*Authentication.* is still useful on its own.
 window-rule {
     match title=r#".*Authentication.*"#
     open-floating true
@@ -352,6 +349,12 @@ environment {
 
     // Wayland Platform Settings
     QT_QPA_PLATFORM "wayland"
+    // GTK3 is the platform theme, and it is what the Colloid theme in
+    // ~/.themes is written against. A Qt application needs a Qt platform-theme
+    // plugin to read it: qt5ct for Qt 5, qt6ct for Qt 6. Both are in
+    // PACMAN_PACKAGES in install.sh. Without them this variable names a theme
+    // Qt cannot find and it falls back to its own default, so it is set here
+    // and the packages are installed rather than the other way round.
     QT_QPA_PLATFORMTHEME "gtk3"
     QT_QPA_PLATFORMTHEME_QT6 "gtk3"
     QT_WAYLAND_DISABLE_WINDOWDECORATION "1"
@@ -364,17 +367,24 @@ environment {
     MOZ_ENABLE_WAYLAND "1"
     MOZ_DBUS_REMOTE "1"
 
-    // Java Applications
-    _JAVA_AWT_WM_NONREPARENTING "1"
-
     // SDL Applications
     SDL_VIDEODRIVER "wayland"
 
     // CLUTTER Applications
     CLUTTER_BACKEND "wayland"
 
-    // Performance
+    // VDPAU_DRIVER "va_gl" routes the NVIDIA driver's VDPAU through Mesa's
+    // Gallium-based VA frontend, which is what makes it work at all on the
+    // proprietary driver. It only does anything on NVIDIA.
     VDPAU_DRIVER "va_gl"
-    LIBVA_DRIVER_NAME "iHD"
+
+    // LIBVA_DRIVER_NAME is deliberately not set. It named "iHD", which is the
+    // Intel driver's name and is therefore wrong on every machine that is not
+    // Intel, and it was set unconditionally. The right value is hardware
+    // dependent -- iHD for Intel, radeonsi for AMD, NVDEC for NVIDIA -- and
+    // none of the three drivers is installed by default here, so naming one
+    // gained nothing. The NVIDIA path in install.sh installs libva-utils and
+    // vulkan-icd-loader; add intel-media-driver, libva-mesa-driver or
+    // mesa-vaapi for the hardware video decode this was reaching for.
 }
 

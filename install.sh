@@ -185,6 +185,13 @@ readonly PACMAN_PACKAGES=(
   zathura zathura-pdf-mupdf ttf-jetbrains-mono-nerd ttf-nerd-fonts-symbols
   qt5-wayland qt6-wayland polkit-gnome unzip jq unrar 7zip man-db bat
   gtklock curl libnotify pavucontrol thunar awww matugen librewolf bottom
+  # Referenced by the configs, so installed rather than left dangling:
+  #   qt5ct, qt6ct        the platform-theme plugin niri/config.kdl names with
+  #                       QT_QPA_PLATFORMTHEME, without which Qt cannot read
+  #                       the Colloid theme in ~/.themes
+  #   networkmanager      nmtui, which fish/config.fish aliases as `wifi`
+  #   playerctl           the [playerctl] section of gtklock/config.ini
+  qt5ct qt6ct networkmanager playerctl
   "${PACMAN_PROVIDER_PORTAL}" "${PACMAN_PROVIDER_JACK}"
   "${PACMAN_PROVIDER_WIREPLUMBER}" "${PACMAN_PROVIDER_FONT}"
   "${PACMAN_PROVIDER_TESSDATA}"

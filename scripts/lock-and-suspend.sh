@@ -9,9 +9,10 @@
 # The wait is the point. gtklock exits when it is dismissed, which is the signal
 # that the lock screen is up and the machine is safe to put to sleep.
 #
-# Shared by the power menu and the power key binding in niri/config.kdl, so both
-# paths behave the same. A missing gtklock warns and suspends anyway: not locking
-# is a risk, refusing to suspend is a bug.
+# The power menu, reached from MOD+P and from the waybar module.
+#
+# A missing gtklock warns and suspends anyway: not locking is a risk, refusing to
+# suspend is a bug.
 
 if ! command -v gtklock > /dev/null 2>&1; then
     printf 'gtklock not found, suspending without locking.\n' >&2

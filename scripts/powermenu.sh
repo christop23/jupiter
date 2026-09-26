@@ -41,8 +41,8 @@ case "${action}" in
         ;;
     "Suspend")
         # Locked first, then suspended, by the shared script. The logic lives
-        # there rather than here so the power key binding in niri/config.kdl
-        # suspends the same way.
+        # there rather than here so the MOD+P binding in niri/config.kdl and the
+        # waybar module both go through one copy of it.
         if confirm "suspend"; then
             exec "${HOME}/.config/scripts/lock-and-suspend.sh"
         fi

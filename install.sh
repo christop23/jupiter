@@ -1489,12 +1489,10 @@ analyze_virtual_providers() {
       # something already decided.
       #
       # The virtual own name counts too, because a package always satisfies a
-      # dependency on its own name. That is not a corner case here: nodejs is
-      # installed on this machine as a package called nodejs, while every
-      # repository now ships only nodejs-lts-iron, -jod and -krypton, so the
-      # installed package is in no sync database and appears in none of pl[].
-      # Checking only the providers therefore asks about a dependency that is
-      # already met.
+      # dependency on its own name even when it declares an empty %PROVIDES%.
+      # That is not hypothetical here: this machine has nodejs installed, and
+      # nodejs declares %PROVIDES% as empty, so it is in none of pl[] and a
+      # providers-only check would ask about a dependency already met.
       state = "open"
       if ((s in isexplicit) || (s in isinstalled)) state = "pinned"
       for (k = 1; k <= np; k++) {

@@ -273,6 +273,7 @@ detect_theme_from_wallpaper() {
 check_theme_changed() {
   local -r current_theme="$1"
   local -r current_variation="$2"
+  local -r current_wallpaper="${3:-}"
 
   # Create cache directory if it doesn't exist
   mkdir -p "$(dirname "$THEME_STATE_FILE")"
@@ -282,8 +283,31 @@ check_theme_changed() {
     return 0 # Theme changed (first run)
   fi
 
-  local previous_theme previous_variation
-  read -r previous_theme previous_variation < "$THEME_STATE_FILE"
+  # Read into one variable rather than two: the state is a single line written
+  # with a plain redirect, and a concurrent read can see a partial write. An
+  # unparseable line is treated as changed, which costs one redundant pass and
+  # cannot leave the colours stale.
+  local state_line
+  state_line="$(cat "$THEME_STATE_FILE" 2>/dev/null || true)"
+  if [[ -z "$state_line" ]]; then
+    log_info "Previous theme state was empty, treating as changed"
+    return 0
+  fi
+
+  local previous_wallpaper="${state_line#*|}"
+  local previous_theme_variation="${state_line%%|*}"
+  local previous_theme="${previous_theme_variation%% *}"
+  local previous_variation="${previous_theme_variation##* }"
+
+  # The wallpaper is part of the key, not just the scheme. Keying on the scheme
+  # alone meant a second wallpaper in the same folder read as unchanged and
+  # skipped matugen entirely, so the colours stayed from the previous image --
+  # and most folders here hold three or four of them, so it happened constantly.
+  # The colours come from the image, so the image is what has to be compared.
+  if [[ -n "$current_wallpaper" && -n "$previous_wallpaper" && "$current_wallpaper" != "$previous_wallpaper" ]]; then
+    log_info "Wallpaper changed: $(basename "$previous_wallpaper") → $(basename "$current_wallpaper")"
+    return 0
+  fi
 
   if [[ "$current_theme" == "$previous_theme" && "$current_variation" == "$previous_variation" ]]; then
     log_info "Theme unchanged: $current_theme ($current_variation)"
@@ -297,9 +321,17 @@ check_theme_changed() {
 save_theme_state() {
   local -r theme="$1"
   local -r variation="$2"
+  local -r wallpaper="${3:-}"
 
   mkdir -p "$(dirname "$THEME_STATE_FILE")"
-  echo "$theme $variation" > "$THEME_STATE_FILE"
+  # Written to a temporary file and renamed, so a reader never sees a partial
+  # line. The wallpaper may contain spaces, so the two fields are separated by a
+  # pipe and the wallpaper is last, which keeps the parse in
+  # check_theme_changed unambiguous.
+  local tmp_file="${THEME_STATE_FILE}.tmp.$$"
+  printf '%s %s|%s\n' "$theme" "$variation" "$wallpaper" > "$tmp_file" \
+    && mv -f "$tmp_file" "$THEME_STATE_FILE" \
+    || { rm -f "$tmp_file"; log_warn "Could not write theme state"; return 1; }
   log_info "Saved theme state: $theme ($variation)"
 }
 
@@ -613,9 +645,9 @@ main() {
 
   log_info "Detected theme: $detected_theme, variation: $wallpaper_variation"
 
-  # Check if theme/variation changed
+  # Check if the wallpaper, theme or variation changed
   local theme_changed=0
-  if check_theme_changed "$detected_theme" "$wallpaper_variation"; then
+  if check_theme_changed "$detected_theme" "$wallpaper_variation" "$wallpaper_path"; then
     theme_changed=1
   fi
 
@@ -633,11 +665,22 @@ main() {
     matugen_mode="dark"
   fi
 
-  # Only apply themes if theme/variation changed
+  # Only apply themes if the wallpaper, theme or variation changed
   if [[ $theme_changed -eq 1 ]]; then
     set_gtk_theme "$gtk_theme" "$wallpaper_variation" "$icon_theme"
     set_icon_theme "$icon_theme"
-    run_matugen_theme "$matugen_mode" "$wallpaper_path"
+
+    # The state is only saved once the colours are actually known to be new.
+    # Saving it unconditionally meant one failed matugen run was cached as
+    # success, which turned a transient failure into theming staying stale for
+    # that wallpaper until the user picked one from a different scheme folder.
+    if ! run_matugen_theme "$matugen_mode" "$wallpaper_path"; then
+      log_error "Theme generation failed. State not saved, so the next run retries."
+      save_theme_state "$detected_theme" "$wallpaper_variation" ""
+      send_notification "Theme Manager" "Theme Generation Failed" "The wallpaper colours were not applied" "critical" "preferences-desktop-theme"
+      return 1
+    fi
+
     update_niri_config
     update_vscode_theme
 
@@ -653,12 +696,12 @@ main() {
       log_warn "makoctl not available, skipping notification daemon reload"
     fi
 
-    save_theme_state "$detected_theme" "$wallpaper_variation"
+    save_theme_state "$detected_theme" "$wallpaper_variation" "$wallpaper_path"
 
     log_success "Dynamic theme synchronization completed successfully"
     send_notification "Theme Manager" "Theme Synchronization Complete" "" "normal" "preferences-desktop-theme"
   else
-    log_info "Theme unchanged, skipping all theming operations"
+    log_info "Wallpaper and theme unchanged, skipping all theming operations"
     log_success "Wallpaper applied, no theme changes needed"
   fi
 }

@@ -158,7 +158,7 @@
 },
 "custom/powermenu": {
   "format": "<span size='13pt'>󰐥</span>",
-  "on-click": "$HOME/.config/scripts/powermenu.sh",
+  "on-click-release": "$HOME/.config/scripts/powermenu.sh",
   "tooltip": false
 }
 }

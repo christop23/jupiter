@@ -1942,6 +1942,16 @@ aur_dependencies() {
   # parser: the RPC returns the lot on one line, and the only quoted strings
   # between the brackets are the names. Duplicates across several packages are
   # harmless, the analyzer walks a package once.
+  # "Depends":["a","b"] out to one name per line. jq is not used because the
+  # array is all that is wanted from the response and this reads it without a
+  # parser: the RPC returns the lot on one line, and the only quoted strings
+  # between the brackets are the names. Duplicates across several packages are
+  # harmless, the analyzer walks a package once.
+  #
+  # Descriptors are dropped rather than walked. A Depends entry can be
+  # "foo: pkg-config-foo", and a seed containing a colon is not a package name,
+  # so the analyzer would look it up, find nothing, and move on -- but the split
+  # costs nothing and keeps the seed list to things that can exist.
   printf '%s' "${response}" |
     tr -d '\n' |
     grep -oE '"Depends":\[[^]]*\]' |
@@ -1949,7 +1959,8 @@ aur_dependencies() {
     grep -oE '"[^"]+"' |
     tr -d '"' |
     tr ' ' '\n' |
-    grep -v '^$' || true
+    grep -v '^$' |
+    cut -d: -f1 || true
 }
 
 install_aur_packages() {

@@ -19,16 +19,22 @@ output_path = "~/.config/alacritty/colors.toml"
 input_path = "templates/waybar.css"
 output_path = "~/.config/waybar/colors.css"
 
-# One entry per destination rather than a list of destinations. matugen honours
-# only the last path when output_path is an array, so the GTK3 file was silently
-# never written and only GTK4 got colours.
+# One entry per destination rather than a list of destinations, because matugen
+# honours only the last path when output_path is an array and the GTK3 file was
+# silently never written.
+#
+# Both write gtk.css, since that is the only user stylesheet GTK loads: GTK 3 and
+# GTK 4 each document that "$XDG_CONFIG_HOME/gtk-<version>/gtk.css is loaded if
+# it exists" and nothing else. A file called colors.css was read by nothing.
+# matugen owns these paths, which is why theme-sync.sh no longer links
+# gtk-4.0/gtk.css into the active theme.
 [templates.gtk3]
 input_path = "templates/gtk.css"
-output_path = "~/.config/gtk-3.0/colors.css"
+output_path = "~/.config/gtk-3.0/gtk.css"
 
 [templates.gtk4]
 input_path = "templates/gtk.css"
-output_path = "~/.config/gtk-4.0/colors.css"
+output_path = "~/.config/gtk-4.0/gtk.css"
 
 [templates.mako]
 input_path = "templates/mako"

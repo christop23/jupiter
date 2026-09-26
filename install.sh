@@ -1240,13 +1240,53 @@ analyze_virtual_providers() {
   }
   function trim(s) { gsub(/^[ \t]+|[ \t]+$/, "", s); return s }
   # libalpm filters providers by the architecture of the requiring package, so a
-  # libfoo.so whose candidates differ only by the multilib prefix is never a
-  # real choice and would only add noise here.
-  function multilib_only(   i, n, s32, s64) {
-    if (d !~ /^lib.*\.so$/) return 0
+  # 64-bit consumer is never offered a lib32- candidate. This drops them from
+  # the list for that reason, which is two things at once.
+  #
+  # It is noise to show a 32-bit package as a candidate for a 64-bit dependency.
+  # And picking one would append it to the target list, where it cannot satisfy
+  # the dependency that asked, so the answer would be wrong rather than merely
+  # ugly. The choice is pl[1] in the walk below and a line in the report, so
+  # both go through here.
+  #
+  # Only ever removes a lib32- entry when something unprefixed survives, so a
+  # virtual whose only providers are 32-bit still lists them.
+  function drop_multilib(   i, n, m, nx64) {
+    if (d !~ /^lib.*\.so$/) return provby[d]
     n = split(provby[d], pl, ",")
-    for (i = 1; i <= n; i++) { if (pl[i] ~ /^lib32-/) s32 = 1; else s64 = 1 }
-    return (s32 && s64)
+    nx64 = 0
+    for (i = 1; i <= n; i++) if (pl[i] !~ /^lib32-/) nx64++
+    if (nx64 == 0) return provby[d]
+    kept = ""
+    for (i = 1; i <= n; i++) {
+      if (pl[i] ~ /^lib32-/) continue
+      kept = (kept == "") ? pl[i] : kept "," pl[i]
+    }
+    return kept
+  }
+  # True when a libfoo.so is not a real choice for an x86_64 user: every
+  # provider is the same package under both architectures, so after
+  # drop_multilib() there is one candidate and nothing to ask.
+  #
+  # It used to be suppressed whenever a lib32- provider existed alongside any
+  # non-lib32 one, which also swallowed the cases where x86_64 genuinely has two
+  # different packages to choose between and lib32- merely mirrors both:
+  #
+  #   libjack.so   jack2, pipewire-jack   + lib32-jack2, lib32-pipewire-jack
+  #   libz.so      zlib, zlib-ng-compat   + the lib32- pair
+  #   libxml2.so   libxml2, libxml2-legacy
+  #
+  # Those are real questions a 64-bit user gets asked, and three are reachable
+  # from the target list in this file: libjack.so through waybar and portaudio,
+  # libz.so through curl, file, libarchive, harfbuzz and leptonica, libxml2.so
+  # through libarchive. Suppressing them is the one way this feature could fail
+  # at pacman picker with no report, which is what it exists to prevent.
+  function multilib_only(   i, n, nx64) {
+    if (d !~ /^lib.*\.so$/) return 0
+    n = split(drop_multilib(), pl, ",")
+    nx64 = 0
+    for (i = 1; i <= n; i++) if (pl[i] != "") nx64++
+    return (nx64 < 2)
   }
   BEGIN {
     FS = "\n"; total = 0; open = 0
@@ -1297,7 +1337,7 @@ analyze_virtual_providers() {
       for (j = 1; j <= nd; j++) {
         d = dl[j]
         if (d == "" || (d in seen_name)) continue
-        np = (d in provby) ? split(provby[d], pl, ",") : 0
+        np = (d in provby) ? split(drop_multilib(), pl, ",") : 0
         if (np == 0) continue
         seen_name[d] = 1
         # A virtual already put to the user is left out of the report, but the

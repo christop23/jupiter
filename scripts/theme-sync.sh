@@ -135,13 +135,10 @@ map_to_gtk_theme() {
         echo "Rosepine-Dark"
       fi
       ;;
-    "tokyo-night")
-      if [[ "$variation" == "light" ]]; then
-        echo "Tokyonight-Light"
-      else
-        echo "Tokyonight-Dark"
-      fi
-      ;;
+    # No tokyo-night arm. There is no wallpapers/Tokyo-Night directory and
+    # install.sh installs no Tokyonight GTK theme, so the branch could never be
+    # reached from a wallpaper and the names it emitted did not exist. It was
+    # also the one mapping with nothing in this repo to check it against.
     *)
       log_warn "Unknown theme: $theme_name, using default theme"
       if [[ "$variation" == "light" ]]; then

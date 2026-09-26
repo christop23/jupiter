@@ -381,49 +381,6 @@ save_theme_state() {
   log_info "Saved theme state: $theme ($variation)"
 }
 
-# Function to set values in INI files
-set_ini_value() {
-  local -r file="$1"
-  local -r section="$2"
-  local -r key="$3"
-  local -r value="$4"
-
-  [[ -f "$file" ]] || touch "$file"
-  if grep -q "^\\[$section\\]" "$file"; then
-    if grep -q "^$key=" "$file"; then
-      sed -i "/^\\[$section\\]/,/^\\[/ s/^$key=.*/$key=$value/" "$file"
-    else
-      sed -i "/^\\[$section\\]/a $key=$value" "$file"
-    fi
-  else
-    # Single backslashes on purpose. Quoted, '\\n' reaches printf as
-    # two characters: it prints one backslash and leaves the n alone, so every
-    # run appended a literal \n instead of a newline and the file ended up as
-    # one long line that GTK cannot parse. The sed patterns above get this right
-    # only because they are double quoted, where bash collapses \\ to \.
-    printf '\n[%s]\n%s=%s\n' "$section" "$key" "$value" >> "$file"
-  fi
-}
-
-manage_gtk_config() {
-  local -r version="$1"
-  local -r theme="$2"
-  local -r variation="${3:-dark}"
-  local -r config_file="$HOME/.config/gtk-$version/settings.ini"
-
-  # Create directory if it doesn't exist
-  mkdir -p "$(dirname "$config_file")"
-
-  set_ini_value "$config_file" "Settings" "gtk-theme-name" "$theme"
-
-  # Set prefer-dark-theme based on variation
-  if [[ "$variation" == "light" ]]; then
-    set_ini_value "$config_file" "Settings" "gtk-application-prefer-dark-theme" "0"
-  else
-    set_ini_value "$config_file" "Settings" "gtk-application-prefer-dark-theme" "1"
-  fi
-}
-
 update_xsettingsd() {
   local -r theme="$1"
   local -r icon_theme="$2"
@@ -556,14 +513,20 @@ set_gtk_theme() {
     return
   fi
 
-  # Apply theme through multiple methods to ensure coverage
+  # update_gtk_settings is the one that works. It goes through gsettings, and on
+  # Wayland that is the only backend GTK reads: a fresh GTK3 client on a live
+  # GdkWaylandDisplay reports the dconf value and ignores ~/.config/gtk-3.0/
+  # settings.ini even when the file names a different theme, and the
+  # gtk-xsettings-* properties do not exist without an XSettings backend.
+  # manage_gtk_config used to write those files "to ensure coverage" and covered
+  # nothing. It is gone rather than left inert, because a second source of
+  # truth for the theme is how the live settings.ini ended up with two [Settings]
+  # groups, one of which nothing could ever update again.
   update_gtk_settings "$gtk_theme" "$variation"
-  manage_gtk_config "3.0" "$gtk_theme" "$variation"
-  manage_gtk_config "4.0" "$gtk_theme" "$variation"
   manage_symlinks "$gtk_theme"
   update_xsettingsd "$gtk_theme" "$icon_theme"
 
-  log_success "GTK theme set to: $gtk_theme with comprehensive configuration"
+  log_success "GTK theme set to: $gtk_theme"
 }
 
 set_icon_theme() {
@@ -610,7 +573,11 @@ run_matugen_theme() {
   # only output that explains a failure -- which is why a failed run used to
   # carry on silently and then report success.
   local output
-  if output="$(matugen image "$wallpaper_path" --mode "$mode" --type scheme-smart 2>&1)"; then
+  # scheme-vibrant, not the scheme-tonal-spot default: the point of this setup is
+  # that the palette comes from the wallpaper, and tonal-spot flattens an image
+  # toward a muted baseline where vibrant keeps the chroma the picture actually
+  # has. matugen/config.toml lists the other nine.
+  if output="$(matugen image "$wallpaper_path" --mode "$mode" --type scheme-vibrant 2>&1)"; then
     log_success "Matugen theme generation completed"
     return 0
   fi

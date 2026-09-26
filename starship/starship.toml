@@ -39,6 +39,12 @@ disabled = false
 show_always = true
 
 # Hostname for SSH
+#
+# The colour is a literal, and every other app here is matugen driven, so this one
+# badge does not follow the wallpaper. It is SSH-only, so it is rarely on screen,
+# which is why it has been left rather than templated: making it follow the theme
+# means a matugen template for starship, writing ~/.config/starship/colors.toml,
+# and $palette in the format at the top of this file.
 [hostname]
 ssh_only = true
 ssh_symbol = ""
@@ -46,7 +52,8 @@ format = "[$hostname ]($style)"
 style = "bg:#A94744 fg:#0D1017"
 disabled = false
 
-# Time display
+# Time display. $time is not in the format at the top of this file, so none of
+# this is shown. Add $time there to use it.
 [time]
 time_format = "%R" # Hour:Minute format
 format = '[ $time ]($style)'

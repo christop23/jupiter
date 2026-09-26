@@ -171,23 +171,29 @@ log() {
   printf "[%s] %s\n" "${timestamp}" "$*" 2> /dev/null >> "${LOG_FILE}" || true
 }
 
+# The message is printed with %b, not %s, because several of them embed the
+# colour constants. In the argument of %s those stay literal text, so a hint
+# like info "Set it up later with: ${CYAN}...${NC}" reaches the terminal as
+# "Set it up later with: \033[0;36m...\033[0m". %b interprets the escapes, and
+# the log below keeps the raw message either way. Nothing passes a literal
+# backslash to these, which is the only thing else %b would eat.
 msg() {
-  printf "${GREEN}==>${NC} %s\n" "$1"
+  printf "${GREEN}==>${NC} %b\n" "$1"
   log "INFO: $1"
 }
 
 info() {
-  printf "${BLUE}==>${NC} %s\n" "$1"
+  printf "${BLUE}==>${NC} %b\n" "$1"
   log "INFO: $1"
 }
 
 warn() {
-  printf "${YELLOW}[WARNING]${NC} %s\n" "$1"
+  printf "${YELLOW}[WARNING]${NC} %b\n" "$1"
   log "WARNING: $1"
 }
 
 error() {
-  printf "${RED}[ERROR]${NC} %s\n" "$1" >&2
+  printf "${RED}[ERROR]${NC} %b\n" "$1" >&2
   log "ERROR: $1"
 }
 

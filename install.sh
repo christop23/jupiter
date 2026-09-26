@@ -441,13 +441,44 @@ cleanup_on_error() {
 # UTILITY FUNCTIONS
 # ==========================
 
+# Runs a command, retrying it up to max_attempts times with a growing wait.
+#
+# A destination directory can be cleared between attempts, given as the second
+# argument. A clone that fails partway leaves the target behind, and
+# `git clone` refuses a non-empty destination, so without this the second and
+# third attempts of every clone in this file could only fail immediately: the
+# retry was a no-op that burned two warn lines and two sleeps. The caller is
+# already deleting the directory on a final failure, so clearing it here does
+# not take away any recovery it relied on.
 retry_command() {
   local max_attempts="$1"
   shift
-  local cmd=("$@")
+  local -a cmd=("$@")
+  local clean_dir=""
   local attempt=1
 
+  # A trailing argument of the form --clean-dir=PATH names the destination to
+  # clear between attempts. It is stripped before the command runs, since git
+  # would not understand it.
+  #
+  # The two refusals are belt and braces on an rm -rf. At every call site the
+  # path is either a mktemp directory or a fresh clone target, so in practice
+  # neither can fire; they are here so that a future caller passing something
+  # else gets a warning and no deletion rather than a deleted home directory.
+  if [[ "${cmd[-1]:-}" == --clean-dir=* ]]; then
+    clean_dir="${cmd[-1]#--clean-dir=}"
+    cmd=("${cmd[@]:0:${#cmd[@]} - 1}")
+    if [[ -z "${clean_dir}" || "${clean_dir}" == "/" || ! "${clean_dir}" == /* ]]; then
+      warn "Refusing to clear '${clean_dir}': not an absolute path."
+      clean_dir=""
+    fi
+  fi
+
   while [[ ${attempt} -le ${max_attempts} ]]; do
+    if [[ -n "${clean_dir}" ]]; then
+      rm -rf "${clean_dir}" 2> /dev/null || true
+    fi
+
     if "${cmd[@]}"; then
       return 0
     fi
@@ -1101,7 +1132,7 @@ install_yay() {
   fi
 
   info "Cloning yay-bin repository (this may take a moment)..."
-  if ! retry_command 3 git clone --depth=1 https://aur.archlinux.org/yay-bin.git "${TEMP_BUILD_DIR}" 2>&1 | log_and_show "${LOG_FILE}"; then
+  if ! retry_command 3 git clone --depth=1 https://aur.archlinux.org/yay-bin.git "${TEMP_BUILD_DIR}" --clean-dir="${TEMP_BUILD_DIR}" 2>&1 | log_and_show "${LOG_FILE}"; then
     fatal "Failed to clone yay-bin repository after multiple attempts."
   fi
 
@@ -2163,7 +2194,7 @@ install_colloid_theme() {
   info "Installing Colloid GTK theme..."
   info "Cloning Colloid theme repository (this may take a moment)..."
 
-  if ! retry_command 3 git clone --depth=1 https://github.com/vinceliuice/Colloid-gtk-theme "${theme_dir}" 2>&1 | log_and_show "${LOG_FILE}"; then
+  if ! retry_command 3 git clone --depth=1 https://github.com/vinceliuice/Colloid-gtk-theme "${theme_dir}" --clean-dir="${theme_dir}" 2>&1 | log_and_show "${LOG_FILE}"; then
     rm -rf "${theme_dir}"
     warn "Failed to clone Colloid theme repository after multiple attempts."
     return 1
@@ -2213,7 +2244,7 @@ install_rosepine_theme() {
   info "Installing Rose Pine GTK theme..."
   info "Cloning Rose Pine theme repository (this may take a moment)..."
 
-  if ! retry_command 3 git clone --depth=1 https://github.com/Fausto-Korpsvart/Rose-Pine-GTK-Theme "${theme_dir}" 2>&1 | log_and_show "${LOG_FILE}"; then
+  if ! retry_command 3 git clone --depth=1 https://github.com/Fausto-Korpsvart/Rose-Pine-GTK-Theme "${theme_dir}" --clean-dir="${theme_dir}" 2>&1 | log_and_show "${LOG_FILE}"; then
     rm -rf "${theme_dir}"
     warn "Failed to clone Rose Pine theme repository after multiple attempts."
     return 1
@@ -2256,7 +2287,7 @@ install_osaka_theme() {
   info "Installing Osaka GTK theme..."
   info "Cloning Osaka theme repository (this may take a moment)..."
 
-  if ! retry_command 3 git clone --depth=1 https://github.com/Fausto-Korpsvart/Osaka-GTK-Theme "${theme_dir}" 2>&1 | log_and_show "${LOG_FILE}"; then
+  if ! retry_command 3 git clone --depth=1 https://github.com/Fausto-Korpsvart/Osaka-GTK-Theme "${theme_dir}" --clean-dir="${theme_dir}" 2>&1 | log_and_show "${LOG_FILE}"; then
     rm -rf "${theme_dir}"
     warn "Failed to clone Osaka theme repository after multiple attempts."
     return 1
@@ -2347,7 +2378,7 @@ install_colloid_icons() {
   info "Installing Colloid icon theme..."
   info "Cloning Colloid icon theme repository (this may take a moment)..."
 
-  if ! retry_command 3 git clone --depth=1 https://github.com/vinceliuice/Colloid-icon-theme "${icons_dir}" 2>&1 | log_and_show "${LOG_FILE}"; then
+  if ! retry_command 3 git clone --depth=1 https://github.com/vinceliuice/Colloid-icon-theme "${icons_dir}" --clean-dir="${icons_dir}" 2>&1 | log_and_show "${LOG_FILE}"; then
     rm -rf "${icons_dir}"
     warn "Failed to clone Colloid icon theme repository after multiple attempts."
     return 1
@@ -2743,7 +2774,7 @@ clone_dotfiles() {
   fi
 
   info "Cloning dotfiles repository (this may take a moment)..."
-  if ! retry_command 3 git clone --depth=1 "${REPO_URL}" "${target}" 2>&1 | log_and_show "${LOG_FILE}"; then
+  if ! retry_command 3 git clone --depth=1 "${REPO_URL}" "${target}" --clean-dir="${target}" 2>&1 | log_and_show "${LOG_FILE}"; then
     # Deliberately no rm -rf of ${DOTDIR} here. That is the whole point of the
     # staging: whatever it was is still there, and cleanup_temp_files removes
     # the unusable staged copy on the way out.

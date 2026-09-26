@@ -155,6 +155,38 @@ readonly AUR_PACKAGES=(
 #   tessdata tessdata                 128 providers, wanted by tesseract, which
 #           comes in via zathura-pdf-mupdf -> libmupdf. This is the worst
 #           offender by far: 128 entries cannot be read on any terminal.
+#   dbus    dbus-units                 3 providers, and the only one wanted by
+#           systemd, which is on every Arch system.
+#
+#           dbus-broker-units, not dbus-units. The package named dbus-units is an
+#           empty shim whose whole content is a dependency on dbus-broker-units,
+#           so the two arrive at the same place and recommending the shim would
+#           add a redundant package to the transaction to get there. Naming the
+#           implementation also keeps the recorded decision the decision: broker
+#           rather than daemon.
+#
+#           That decision is the point. All three candidates satisfy the
+#           dependency -- dbus-units, dbus-broker-units and dbus-daemon-units all
+#           declare it -- and dbus-daemon-units is the legacy dbus-daemon, which
+#           is a step back from dbus-broker, Arch's default, on a machine that
+#           has no other reason to run it. Before this entry the prompt showed the
+#           three unmarked and in order, so the default came from the sort leading
+#           with the own name and a reader had nothing to tell the legacy option
+#           apart from the other two.
+#
+#           It is a recommendation rather than a prohibition. Somebody who wants
+#           dbus-daemon can still answer 3, and the post-install check will then
+#           say dbus-units resolved to dbus-daemon-units instead of
+#           dbus-broker-units. That warning is deliberate: it reports that this
+#           installer wanted broker and did not get it. It is the one case here
+#           where the check can fire on a configuration someone chose on purpose.
+#
+#           A general "mark the legacy candidate as bad" rule was considered and
+#           rejected. libxml2-legacy, iptables-legacy and libxcrypt-compat are
+#           also candidates in this list, and for those the legacy or compat
+#           build is a choice people make deliberately, so a rule that flagged
+#           them would be wrong. Marking the one we want leaves the rest unmarked,
+#           which is the same information without a claim we cannot support.
 #   opengl   opengl-driver               3 providers. nvidia-utils covers it
 #           when the NVIDIA driver is installed, otherwise mesa does, and
 #           that choice is made per run in build_pacman_targets.
@@ -206,6 +238,7 @@ readonly PACMAN_PROVIDER_TESSDATA="tesseract-data-eng"
 readonly PACMAN_PROVIDER_MESA="mesa"
 readonly PACMAN_PROVIDER_SECRETS="gnome-keyring"
 readonly PACMAN_PROVIDER_NODEJS="nodejs"
+readonly PACMAN_PROVIDER_DBUS_UNITS="dbus-broker-units"
 
 # The one place a virtual is mapped to the provider this installer wants, as
 # "<virtual>=<provider>" on separate lines.
@@ -234,7 +267,8 @@ provider_recommendations() {
     "ttf-font=${PACMAN_PROVIDER_FONT}" \
     "tessdata=${PACMAN_PROVIDER_TESSDATA}" \
     "org.freedesktop.secrets=${PACMAN_PROVIDER_SECRETS}" \
-    "nodejs=${PACMAN_PROVIDER_NODEJS}"
+    "nodejs=${PACMAN_PROVIDER_NODEJS}" \
+    "dbus-units=${PACMAN_PROVIDER_DBUS_UNITS}"
   do
     printf '%s\n' "${line}"
   done

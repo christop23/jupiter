@@ -1370,7 +1370,7 @@ analyze_virtual_providers() {
     # absence was reachability, not suppression -- the walk never got to pam,
     # libarchive or iproute2 -- and they surface now only because re-rooting the
     # walk reaches them.
-    provby[name] = (name in provby) ? provby[name] "," name : name
+    provby[name] = (name in provby) ? name "," provby[name] : name
     n = split(provs, a, ",")
     for (i = 1; i <= n; i++) {
       if (a[i] == "" || a[i] == name) continue
@@ -1380,9 +1380,31 @@ analyze_virtual_providers() {
     # when a package already on the system does. The second case is what keeps
     # a re-run on a configured machine from asking questions about providers it
     # already has, since those targets were dropped before the analysis.
+    # satby records which package did the satisfying, not just that something
+    # did. Without it a soname whose provider was already chosen above it has no
+    # way to follow that answer: libjack.so resolved to jack2 while jack, asked
+    # moments earlier, resolved to pipewire-jack. Both were then added to the
+    # transaction, and pipewire-jack conflicts with jack2, so pacman was handed a
+    # transaction it rejects. The own name is included, so a virtual satisfied by
+    # the package of the same name records that package as well.
     if (name in isexplicit || name in isinstalled) {
       satisfied[name] = 1
       for (i = 1; i <= n; i++) if (a[i] != "") satisfied[a[i]] = 1
+    }
+    # satby, unlike satisfied, is only for packages going into this transaction.
+    #
+    # A provider merely already installed must not steer the answer. This machine
+    # has xdg-desktop-portal-gtk installed while the curated recommendation is
+    # xdg-desktop-portal-gnome, and following the installed one put both in the
+    # transaction, where they conflict. The recommendations exist to hold the
+    # desktop together; an incidental package that happens to be present is not a
+    # decision, and the row is already marked pinned without it.
+    if (name in isexplicit) {
+      satby[name] = name
+      for (i = 1; i <= n; i++) {
+        if (a[i] == "" || a[i] == name) continue
+        satby[a[i]] = name
+      }
     }
     name = ""; provs = ""; deps = ""; sect = ""
   }
@@ -1502,7 +1524,13 @@ analyze_virtual_providers() {
         # be ambiguous too.
         if (np > 1 && !multilib_only() && !(d in isasked)) {
           total++
-          state = (d in satisfied) ? "pinned" : "open"
+          # The satisfying package travels in the state column, as
+          # "pinned=<provider>", rather than in a column of its own, so that the
+          # providers keep starting at index 5 for both readers of the row.
+          # ask_for_provider is the only thing that reads this field and it tests
+          # for the pinned prefix. A row can be pinned with no known provider, in
+          # which case it stays a bare "pinned" and the recommendation is used.
+          state = (d in satisfied) ? ((d in satby) ? "pinned=" satby[d] : "pinned") : "open"
           if (state == "open") open++
           rec = (d in recfor) ? recfor[d] : "-"
           line = "AMB\t" d "\t" cur "\t" rec "\t" state
@@ -1559,7 +1587,7 @@ analyze_virtual_providers() {
       # nodejs declares %PROVIDES% as empty, so it is in none of pl[] and a
       # providers-only check would ask about a dependency already met.
       state = "open"
-      if ((s in isexplicit) || (s in isinstalled)) state = "pinned"
+      if (s in isexplicit) state = "pinned=" s
       for (k = 1; k <= np; k++) {
         if ((pl[k] in isexplicit) || (pl[k] in isinstalled)) state = "pinned"
       }
@@ -1824,8 +1852,35 @@ ask_for_provider() {
   local -i default=1 number
   local choice=""
 
+  # A row can arrive as "pinned=<provider>", meaning some decision already made
+  # picks that provider out of this list. It wins over the recommendation, and it
+  # has to: libjack.so carries jack2 and pipewire-jack, jack above it resolves to
+  # pipewire-jack, and taking jack2 here put both in the transaction, which
+  # pipewire-jack conflicts with. Without this the two answers contradict each
+  # other and pacman refuses the lot.
+  #
+  # The satisfying provider is used only if it is actually in the list. It should
+  # always be, since it came out of the same provider index, but a stale report
+  # must not make the prompt point at a number that is not there.
+  # The satisfying provider is used only if it is actually in the list. It should
+  # always be, since it came out of the same provider index, but a stale report
+  # must not make the prompt point at a number that is not there.
+  local provided_by=""
+  if [[ "${state}" == pinned=* ]]; then
+    provided_by="${state#pinned=}"
+    for (( number = 1; number <= count; number++ )); do
+      if [[ "${providers[number - 1]}" == "${provided_by}" ]]; then
+        default=number
+        break
+      fi
+    done
+  fi
+
   printf "\n"
-  if [[ "${state}" == "pinned" ]]; then
+  if [[ -n "${provided_by}" ]]; then
+    printf "  ${BOLD}%s${NC}  ${CYAN}(needed by %s, already provided by %s in this install)${NC}\n" \
+      "${virtual}" "${needed_by}" "${provided_by}"
+  elif [[ "${state}" == "pinned" ]]; then
     printf "  ${BOLD}%s${NC}  ${CYAN}(needed by %s, installer default below)${NC}\n" \
       "${virtual}" "${needed_by}"
   else
@@ -1833,8 +1888,17 @@ ask_for_provider() {
   fi
 
   for (( number = 1; number <= count; number++ )); do
-    if [[ "${providers[number - 1]}" == "${rec}" ]]; then
-      default=number
+    if [[ -n "${provided_by}" && "${providers[number - 1]}" == "${provided_by}" ]]; then
+      # Marked as already in the transaction rather than as a recommendation. The
+      # two are different things and conflating them is how the contradiction this
+      # replaces went unnoticed: both showed as "the default" while disagreeing.
+      # It need not be the requirer that put it there -- for jack it is this
+      # installer own package list, via PACMAN_PROVIDER_JACK.
+      printf "     %2d) %s  ${GREEN}<- already in this install${NC}\n" \
+        "${number}" "${providers[number - 1]}"
+    elif [[ "${providers[number - 1]}" == "${rec}" ]]; then
+      # Only moves the default when no earlier answer already picked one.
+      [[ -z "${provided_by}" ]] && default=number
       printf "     %2d) %s  ${GREEN}<- recommended${NC}\n" "${number}" "${providers[number - 1]}"
     else
       printf "     %2d) %s\n" "${number}" "${providers[number - 1]}"
@@ -1863,7 +1927,22 @@ ask_for_provider() {
   fi
 
   local picked="${providers[choice - 1]}"
-  PACMAN_TARGETS+=("${picked}")
+  # Appended only if not already there. Two virtuals commonly resolve to the same
+  # package -- zlib and libz.so, jack and libjack.so, mesa and opengl-driver -- and
+  # each answer used to add it again, so the transaction handed to pacman carried
+  # eight duplicates out of 55 entries. pacman tolerates a repeated target, but a
+  # list that lists the same package twice is not a list anyone can read.
+  local -i already=0
+  local existing
+  for existing in "${PACMAN_TARGETS[@]}"; do
+    if [[ "${existing}" == "${picked}" ]]; then
+      already=1
+      break
+    fi
+  done
+  if [[ "${already}" -eq 0 ]]; then
+    PACMAN_TARGETS+=("${picked}")
+  fi
   ASKED_VIRTUALS+="${virtual} "
 
   # Recorded as virtual|answer, and only the answer. The check after the install

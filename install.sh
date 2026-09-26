@@ -144,6 +144,15 @@ readonly PACMAN_PACKAGES=(
   "${PACMAN_PROVIDER_TESSDATA}"
 )
 
+# The polkit agent that niri starts, by absolute path, because that is the only
+# way it is started: niri/config.kdl runs it from /usr/lib/polkit-gnome, where
+# it is not in PATH and so cannot be found the way the other binaries are. It is
+# the one file the polkit-gnome package ships under that name, and the polkit
+# daemon it talks to is a hard dependency of it, so checking this one path covers
+# the whole authentication chain. Keep this path and the spawn line in niri's
+# config in step.
+readonly POLKIT_AGENT_PATH="/usr/lib/polkit-gnome/polkit-gnome-authentication-agent-1"
+
 # ==========================
 # COLOR OUTPUT
 # ==========================
@@ -1853,6 +1862,26 @@ verify_all_binaries() {
   fi
 
   msg "All required binaries verified."
+
+  verify_polkit_agent
+}
+
+# The polkit agent is not on PATH, so the loop above cannot see it, and its
+# absence is silent: niri starts it, the spawn fails, and the desktop comes up
+# with no way to ask for a password. Nothing that needs root works after that
+# and nothing on screen says why. Not fatal, the rest of the desktop is fine
+# without it, but too quiet to leave to be discovered.
+verify_polkit_agent() {
+  if [[ -x "${POLKIT_AGENT_PATH}" ]]; then
+    msg "polkit agent: ${POLKIT_AGENT_PATH}"
+    return 0
+  fi
+
+  warn "No polkit agent at ${POLKIT_AGENT_PATH}, which is where niri starts it."
+  warn "Without it nothing can ask for a password: mounting disks, changing"
+  warn "network settings or installing packages from a desktop tool will fail."
+  info "Install it with: ${CYAN}sudo pacman -S polkit-gnome${NC}"
+  info "The polkit daemon itself is a dependency of that package."
 }
 
 # ==========================

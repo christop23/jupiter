@@ -40,6 +40,10 @@ cursor {
 }
 
 overview {
+    // Rewritten from the matugen accent by theme-sync.sh on every wallpaper
+    // change. It used to be a fixed literal, so the overview kept the original
+    // theme's backdrop after every wallpaper change, which is the most visible
+    // stale colour in the compositor.
     backdrop-color "#1E1E2E"
     workspace-shadow {
         off
@@ -196,13 +200,19 @@ layout {
         proportion 0.66667
     }
 
+    // A width of 0 removes the focus indicator entirely, and with
+    // focus-follows-mouse below there is then no way to tell which window has
+    // focus while navigating by keyboard. active-color is rewritten from the
+    // matugen accent on every wallpaper change, so the colour follows the
+    // theme; the width is what has to be non-zero for that to be visible.
     focus-ring {
-        width 0
+        width 2
         active-color "#1E1E2E"
     }
 
+    // Not off: the colour below is rewritten from the matugen accent on every
+    // wallpaper change, and with insert-hint disabled that had nothing to show.
     insert-hint {
-        off
         color "#1E1E2E"
     }
 

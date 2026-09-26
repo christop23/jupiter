@@ -587,22 +587,57 @@ update_niri_config() {
     return
   fi
 
-  local background_color
-  background_color=$(jq -r '.special.background' "$matugen_colors_file")
-
-  if [[ -z "$background_color" ]]; then
-    log_warn "Could not extract background color from matugen cache"
-    return
+  if [[ ! -f "$niri_config_file" ]]; then
+    log_warn "niri config not found at ${niri_config_file}, skipping"
+    return 1
   fi
 
-  log_info "Updating niri config with background color: $background_color"
+  # .special.cursor, not .special.background. The focus ring and insert hint
+  # are drawn against the backdrop, so painting them the background colour made
+  # them invisible. The cursor value is the accent, which is what matugen's
+  # pywal cache pairs with colors.primary.
+  #
+  # jq -e with the interpolated form, so a missing key exits non-zero instead of
+  # printing the string "null": the old -z test did not catch that, and
+  # `active-color "null"` in config.kdl is a value niri rejects on reload.
+  local accent_color
+  if ! accent_color="$(jq -re '"\(.special.cursor)" // empty' "$matugen_colors_file" 2>/dev/null)" \
+     || [[ ! "$accent_color" =~ ^#[[:xdigit:]]{6,8}$ ]]; then
+    log_warn "Could not read a usable accent colour from ${matugen_colors_file}, skipping niri update"
+    return 1
+  fi
 
-  # Only change active-color within the focus-ring block
-  sed -i "/focus-ring {/,/}/ s/active-color \".*\"/active-color \"$background_color\"/" "$niri_config_file"
-  # Only change color within the insert-hint block
-  sed -i "/insert-hint {/,/}/ s/color \".*\"/color \"$background_color\"/" "$niri_config_file"
+  log_info "Updating niri config with accent color: $accent_color"
 
-  log_success "Niri config updated successfully"
+  # The overview backdrop is a direct substitution rather than a range: an
+  # /overview {/,/}/ range stops at the closing brace of the nested
+  # workspace-shadow block, not the outer one.
+  #
+  # Every sed is checked, because none of them failing was previously visible
+  # and the function logged success regardless.
+  local rc=0
+  sed -i "/focus-ring {/,/}/ s/active-color \".*\"/active-color \"$accent_color\"/" "$niri_config_file" || rc=1
+  sed -i "/insert-hint {/,/}/ s/color \".*\"/color \"$accent_color\"/" "$niri_config_file" || rc=1
+  sed -i "s/backdrop-color \".*\"/backdrop-color \"$accent_color\"/" "$niri_config_file" || rc=1
+
+  if [[ $rc -ne 0 ]]; then
+    log_error "Failed to update niri config"
+    return 1
+  fi
+
+  # The two blocks this patches are switched off in the config it is patching:
+  # focus-ring has width 0 and insert-hint is off, so the accent just written
+  # has no visible effect. Say so rather than leaving it looking applied.
+  if grep -A2 'focus-ring {' "$niri_config_file" | grep -qE '^\s*width 0'; then
+    log_warn "focus-ring width is 0, so the accent is not visible."
+    log_warn "Set it to 2 in niri/config.kdl to see the focus ring."
+  fi
+  if grep -A1 'insert-hint {' "$niri_config_file" | grep -qE '^\s*off'; then
+    log_warn "insert-hint is off, so the accent is not visible there either."
+    log_warn "Remove 'off' from insert-hint in niri/config.kdl to enable it."
+  fi
+
+  log_success "Niri config updated"
 }
 
 update_vscode_theme() {

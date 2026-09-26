@@ -468,7 +468,7 @@ check_disk_space() {
     warn "You may encounter issues during installation"
     printf "\n"
 
-    local reply
+    local reply=""
     # `|| true` so a closed stdin falls through to the safe default below
     # instead of tripping set -e and aborting the whole install.
     read -r -p "Continue anyway? (y/N): " reply < /dev/tty || true
@@ -559,7 +559,7 @@ check_optional_dependencies() {
     printf "  • Waybar modules may show errors on first launch until backends are installed\n"
     printf "\n"
 
-    local reply
+    local reply=""
     read -r -p "Continue installation without these optional dependencies? (Y/n): " reply < /dev/tty || true
     printf "\n"
 
@@ -798,7 +798,7 @@ configure_nvidia() {
   printf "    ${CYAN}yay -S nvidia-580xx-dkms${NC}\n"
   printf "\n"
 
-  local reply
+  local reply=""
   # `|| true` so a closed stdin counts as "no" rather than tripping set -e
   # and aborting the whole install through the ERR trap.
   read -r -p "Install an NVIDIA driver? (y/N): " reply < /dev/tty || true
@@ -935,7 +935,7 @@ offer_restore() {
     printf "  %s\n" "${BACKUP_DIR}"
     printf "\n"
 
-    local reply
+    local reply=""
     read -r -p "Would you like to restore your backup now? (y/N): " reply < /dev/tty || true
     printf "\n"
 
@@ -1832,7 +1832,7 @@ configure_greeter() {
   printf "  • The greeter starts niri after you log in\n"
   printf "\n"
 
-  local reply
+  local reply=""
   # `|| true` so a closed stdin counts as "no" rather than tripping set -e
   # and aborting the install at the last step through the ERR trap.
   read -r -p "Install and enable the greetd + tuigreet greeter? (Y/n): " reply < /dev/tty || true

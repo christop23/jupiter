@@ -55,8 +55,16 @@ window#waybar {
   color: @color4;
 }
 
+/* The mpris module sits in modules-center, next to the workspace list, so a
+   40-character track title there competes with the thing you actually look at.
+   max-length in modules.json caps it; this is the state dimming, so a paused
+   track is visibly not the one you are listening to. */
 #mpris {
   color: @color3;
+}
+
+#mpris.paused {
+  color: @color1;
 }
 
 #network.disabled {

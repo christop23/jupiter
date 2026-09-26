@@ -655,22 +655,6 @@ update_niri_config() {
   log_success "Niri config updated"
 }
 
-# There was an update_vscode_theme() here, which rewrote
-# workbench.colorTheme in ~/.config/Code/User/settings.json to Light Modern or
-# Dark Modern depending on the wallpaper. It is gone.
-#
-# Nothing in this setup is VS Code: it is not in PACMAN_PACKAGES, not in
-# CONFIG_FOLDERS, not in the README's tool list, and has no keybind. The function
-# existed to theme an application on someone else's machine, and it ran on every
-# wallpaper change while quietly doing nothing for everyone else -- when the file
-# was absent it logged a warning, and when it was present but formatted slightly
-# differently it logged success having changed nothing, because the sed needs the
-# exact spelling "workbench.colorTheme": "..." with one space after the colon.
-#
-# If VS Code is ever wanted here, theme it through its own extension
-# (Catppuccin, or the wallust-vscode extension this repo used to carry) rather
-# than by rewriting one JSON key from a wallpaper script.
-
 main() {
   log_info "Starting dynamic theme synchronization"
 

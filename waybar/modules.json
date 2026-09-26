@@ -58,10 +58,17 @@
     "tooltip-format": "<tt><small>{calendar}</small></tt>"
 },
 "mpris": {
-  "format": "<span size='14pt'>󰐎</span>",
+  "format": "<span size='14pt'>{status_icon}</span> {title}",
+  "format-paused": "<span size='14pt'>{status_icon}</span> <i>{title}</i>",
+  "status-icons": {
+    "playing": "󰐎",
+    "paused": "󰏥",
+    "stopped": "󰏥"
+  },
+  "max-length": 40,
   "interval": 1,
   "tooltip": true,
-  "tooltip-format": "{title}"
+  "tooltip-format": "<b>{title}</b>\n{artist} - {album}\n{position}/{length}"
 },
 "custom/menu": {
   "format": "<span size='16pt'>󰅃</span>",

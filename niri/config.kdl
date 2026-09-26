@@ -261,10 +261,9 @@ window-rule {
     open-floating true
 }
 
-// Open-maximized. VS Code was in this list and has been removed: it is not
-// installed by this setup, has no keybind, and is not in the package list. A
-// window rule for an application that is never launched is a rule that cannot
-// be tested.
+// Open-maximized. A window rule for an application that is never launched is a
+// rule that cannot be tested, so this list holds only what is in the package
+// list.
 window-rule {
     match app-id=r#"librewolf"#
     open-maximized true

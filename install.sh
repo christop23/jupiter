@@ -2119,9 +2119,13 @@ install_gtk_themes() {
     warn "You can manually install these themes later if needed."
   fi
 
+  # A theme is cosmetic. Returning 1 here reached the ERR trap through set -e
+  # and killed an install that had not yet reached the dotfiles, over a GitHub
+  # outage while cloning a stylesheet. The failure is already reported above and
+  # the install carries on without it.
   if [[ ${#installed_themes[@]} -eq 0 ]]; then
-    error "All GTK themes failed to install."
-    return 1
+    warn "No GTK themes were installed. The desktop will use the default theme."
+    warn "theme-sync.sh will report this until a theme is installed by hand."
   fi
 
   return 0
@@ -2194,9 +2198,10 @@ install_icon_themes() {
     warn "You can manually install these icon themes later if needed."
   fi
 
+  # Cosmetic, and nothing downstream depends on it, so this warns rather than
+  # returning 1 into the ERR trap.
   if [[ ${#installed_icons[@]} -eq 0 ]]; then
-    error "All icon themes failed to install."
-    return 1
+    warn "No icon themes were installed. The desktop will use the default icons."
   fi
 
   return 0

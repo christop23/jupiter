@@ -177,60 +177,27 @@ readonly AUR_PACKAGES=(
 #           KDE in with it. oo7 is a minimal provider with little use beyond
 #           it. All of them are offered, since a machine already using one, or
 #           a person who wants one, should not be second-guessed here.
-#   nodejs  nodejs                    3 providers, also wanted by an AUR
-#           package, and deliberately left with no recommendation. vicinae-bin
-#           depends on nodejs directly, nodejs is a virtual, and the providers
-#           the index finds are nodejs-lts-iron, -jod and -krypton. So
-#           install_aur_packages asks this one and Enter takes the first
-#           alphabetically, which is the oldest LTS.
+#   nodejs  nodejs                    4 providers, wanted by an AUR package.
+#           vicinae-bin depends on nodejs directly, so install_aur_packages is
+#           the step that asks, and nodejs is excluded from the post-install
+#           check for the same reason org.freedesktop.secrets is.
 #
-#           Adding a recommendation here does not work yet, and the reason is
-#           worth knowing before anyone tries. The only sensible answer is
-#           nodejs itself -- it is in extra, it is what pacman installed here,
-#           and it is the current release rather than a dated LTS -- but nodejs
-#           declares %PROVIDES% as empty, so it is not in the index and never
-#           reaches the candidate list. ask_for_provider marks a recommended
-#           provider only when it is one of the listed candidates, and only moves
-#           its default on a listed match, so a recommendation naming an unlisted
-#           package is accepted, recorded, and then silently ignored. Verified
-#           with nodejs=nodejs set and the index left alone: the prompt lists the
-#           three LTS variants, marks nothing, and Enter takes nodejs-lts-iron.
+#           nodejs over the three nodejs-lts-* variants, and the reason is
+#           recorded rather than assumed. nodejs is in extra, it is the current
+#           release rather than a dated LTS, and it is what pacman installed here
+#           on 2026-09-26 to satisfy vicinae-bin depends=nodejs. The three variants
+#           are 20, 22 and 24; this is 26. A launcher wants a runtime, not a
+#           specific long-term-support line.
 #
-#           The index has to list a package under its own name first, and that
-#           change is bigger than it looks. It is not a matter of surfacing more
-#           ambiguous dependencies: the sonames it appears to fix were never
-#           missing. libcrypt.so, libxml2.so and libxtables.so are each indexed
-#           with two or more providers right now, and multilib_only correctly
-#           declines to suppress them, so those rows were always eligible to be
-#           emitted. They are absent because the walk never reaches pam,
-#           libarchive or iproute2.
-#
-#           What the own-name index actually changes is where the walk descends.
-#           When a virtual is undecided the walk continues through pl[1], and
-#           today pl[1] is whichever provider the database happened to list
-#           first, which for these is the alternative implementation rather than
-#           the package of the same name:
-#
-#             zlib              pl[1] = zlib-ng-compat        -> zlib
-#             mesa              pl[1] = mesa-amber            -> mesa
-#             ca-certificates   pl[1] = ca-certificates-utils-> ca-certificates
-#             pinentry          pl[1] = pinentry-bemenu       -> pinentry
-#
-#           So the walk currently explores a branch the user probably would not
-#           have chosen, and indexing the own name moves it to the branch pacman
-#           would take. That is the actual argument for the change, and it is a
-#           good one. The cost side is that re-rooting the walk changes the whole
-#           transitive closure that gets explored, so the row count moves for
-#           indirect reasons: 7 rows become 17, and the number actually asked on
-#           a machine that has never run this installer goes from 2 to 11. An
-#           earlier version of this comment called that "ten extra questions" and
-#           named tessdata as a 77-option picker. Both wrong. tessdata is 128
-#           candidates and is pinned, not asked, because tesseract-data-eng is
-#           already an explicit target.
-#
-#           Not made here. When it lands, add PACMAN_PROVIDER_NODEJS="nodejs" and
-#           a nodejs line to provider_recommendations, and the existing mechanism
-#           does the rest.
+#           This only works because the provider index lists a package under its
+#           own name. nodejs declares %PROVIDES% as empty, so before that, this
+#           line named a package that never reached the candidate list, and
+#           ask_for_provider ignored it silently: it marks a provider recommended
+#           only when that provider is one of the listed candidates, and only
+#           moves its default on a listed match. Verified both ways. With the
+#           recommendation and no index fix, the prompt listed the three LTS
+#           variants, marked nothing, and Enter took nodejs-lts-iron. That is why
+#           the two changes belong in one commit.
 readonly PACMAN_PROVIDER_PORTAL="xdg-desktop-portal-gnome"
 readonly PACMAN_PROVIDER_JACK="pipewire-jack"
 readonly PACMAN_PROVIDER_WIREPLUMBER="wireplumber"
@@ -238,6 +205,7 @@ readonly PACMAN_PROVIDER_FONT="noto-fonts"
 readonly PACMAN_PROVIDER_TESSDATA="tesseract-data-eng"
 readonly PACMAN_PROVIDER_MESA="mesa"
 readonly PACMAN_PROVIDER_SECRETS="gnome-keyring"
+readonly PACMAN_PROVIDER_NODEJS="nodejs"
 
 # The one place a virtual is mapped to the provider this installer wants, as
 # "<virtual>=<provider>" on separate lines.
@@ -265,7 +233,8 @@ provider_recommendations() {
     "pipewire-session-manager=${PACMAN_PROVIDER_WIREPLUMBER}" \
     "ttf-font=${PACMAN_PROVIDER_FONT}" \
     "tessdata=${PACMAN_PROVIDER_TESSDATA}" \
-    "org.freedesktop.secrets=${PACMAN_PROVIDER_SECRETS}"
+    "org.freedesktop.secrets=${PACMAN_PROVIDER_SECRETS}" \
+    "nodejs=${PACMAN_PROVIDER_NODEJS}"
   do
     printf '%s\n' "${line}"
   done
@@ -1362,9 +1331,49 @@ analyze_virtual_providers() {
   function flush(   a, i, n) {
     if (name == "") return
     if (deps != "") depsby[name] = deps
+    # A package satisfies a dependency on its own name whether or not it says
+    # so in %PROVIDES%, and that has to be in the index for two reasons.
+    #
+    # The candidate list. nodejs declares %PROVIDES% empty, so without this it
+    # offers only the three nodejs-lts-* variants and not nodejs, which is both
+    # what pacman reaches for and what is installed here. The list put to the
+    # user has to be the list pacman would choose from.
+    #
+    # More importantly, pl[1]. When a virtual is undecided the walk continues
+    # through pl[1], and pl[1] was whichever provider the concatenated sync
+    # databases happened to list first -- for several of these the alternative
+    # implementation rather than the package of the same name:
+    #
+    #   zlib             zlib-ng-compat          ca-certificates  ca-certificates-utils
+    #   mesa             mesa-amber              pinentry         pinentry-bemenu
+    #
+    # So the walk descended into a branch the person probably would not have
+    # chosen, and then reported questions about that branch dependencies. Indexing
+    # the own name moves pl[1] onto the branch pacman takes.
+    #
+    # The cost is that re-rooting the walk changes the whole transitive closure
+    # explored, so rows move for indirect reasons. Measured with this analyzer
+    # against the live databases: 7 rows become 17, and resolve_virtual_providers
+    # asks about every row regardless of state, so that is also 7 prompts
+    # becoming 17, on a configured machine as much as on a fresh one. What
+    # differs is how many of those prompts carry no default. On a machine where
+    # the targets are already installed all 17 are pinned, so each one shows
+    # "(installer default below)" and a bare Enter takes the recommendation --
+    # correct, but ten more lists to scroll past. On a machine that has never run
+    # this installer the count of prompts with no default goes from 2 to 11, and
+    # those are real choices. Every new answer is the package of the same name.
+    #
+    # The sonames this appears to fix were never missing. libcrypt.so,
+    # libxml2.so, libxtables.so and libz.so each already indexed with two or more
+    # providers, and multilib_only correctly declines to suppress any of them,
+    # since none has a lib32- entry sitting alongside a non-lib32 one. Their
+    # absence was reachability, not suppression -- the walk never got to pam,
+    # libarchive or iproute2 -- and they surface now only because re-rooting the
+    # walk reaches them.
+    provby[name] = (name in provby) ? provby[name] "," name : name
     n = split(provs, a, ",")
     for (i = 1; i <= n; i++) {
-      if (a[i] == "") continue
+      if (a[i] == "" || a[i] == name) continue
       provby[a[i]] = (a[i] in provby) ? provby[a[i]] "," name : name
     }
     # A dependency is already decided when an explicit target provides it, or
@@ -1974,27 +1983,34 @@ verify_virtual_providers() {
   # provider list out of the sync databases, so nothing here is a hand-written
   # pattern that can rot.
   #
-  # The virtuals reached only from an AUR package are not in it, because their
+  # Virtuals reached only from an AUR package are not in it, because their
   # recommendation depends on metadata fetched at run time rather than on this
   # table. Those are checked against the answers given, by the AUR step.
   local entry virtual expected
   local -a checks=()
 
+  # Nothing in PACMAN_PACKAGES wants these. Both are reached only from an AUR
+  # package -- org.freedesktop.secrets through vicinae-bin's qtkeychain-qt6
+  # dependency, nodejs through vicinae-bin directly -- so install_aur_packages
+  # is the step that asks about them, and it runs after this one. Checking them
+  # here would warn about a provider the person has not been asked to choose yet,
+  # on a machine that already has one, which is exactly the case this check
+  # exists to be quiet in. The AUR step checks them against the answer given.
+  local -a aur_only_virtuals=("org.freedesktop.secrets" "nodejs")
+  local skip aur_only
+
   while IFS= read -r entry; do
     [[ -z "${entry}" ]] && continue
     IFS='=' read -r virtual expected <<< "${entry}"
 
-    # org.freedesktop.secrets is in the table for the preview and the resolver,
-    # but it is not checked here. Nothing in PACMAN_PACKAGES wants it: it is
-    # reached only from an AUR package, through vicinae-bin's qtkeychain
-    # dependency, so install_aur_packages is the step that asks about it -- and
-    # that step runs after this one. Checking it here would warn about a
-    # provider the person has not been asked to choose yet, on a machine that
-    # already has one, which is exactly the case this check exists to be quiet
-    # in. The AUR step checks it against the answer given.
-    if [[ "${virtual}" == "org.freedesktop.secrets" ]]; then
-      continue
-    fi
+    skip=0
+    for aur_only in "${aur_only_virtuals[@]}"; do
+      if [[ "${virtual}" == "${aur_only}" ]]; then
+        skip=1
+        break
+      fi
+    done
+    [[ "${skip}" -eq 1 ]] && continue
 
     checks+=("${virtual}|${expected}")
   done < <(provider_recommendations)

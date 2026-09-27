@@ -148,6 +148,20 @@ error() {
 # tee's output still reaches the terminal either way, so the visible behaviour
 # is unchanged when the log works. `|| true` is on the tee alone, and the
 # command's own status is what the pipeline then reports.
+#
+# The `| log_and_show` pipe is also why every package transaction below is
+# prefixed with `stdbuf -oL`. The "1)" markers and the "Enter a number" prompt
+# go to stderr, which is unbuffered, but the provider names are printf'd to
+# stdout with no flush, and stdout is block-buffered once it is a pipe: the
+# prompt arrived while the options it was asking about were still in the
+# buffer, and the names only appeared in one burst when pacman exited.
+# `stdbuf -oL` in front of pacman fixes that, and it has to wrap the process
+# doing the writing, not the tee at the other end. Line buffering, not _IONBF,
+# so a line stays whole when a package's install script shares the descriptor.
+# `sudo stdbuf -oL pacman`, never `stdbuf -oL sudo pacman`: sudo resets the
+# environment and drops LD_PRELOAD, so the preload would never reach pacman.
+# stdbuf is in coreutils, which pacman depends on, so it is always installed.
+# The log file is identical either way, only the live display changes.
 log_and_show() {
   tee -a "${LOG_FILE}" || true
 }
@@ -609,7 +623,7 @@ restore_backup() {
 
 update_system() {
   info "Updating system packages..."
-  if sudo pacman -Syu < /dev/tty 2>&1 | log_and_show "${LOG_FILE}"; then
+  if sudo stdbuf -oL pacman -Syu < /dev/tty 2>&1 | log_and_show "${LOG_FILE}"; then
     msg "System updated successfully."
   else
     fatal "Failed to update system packages."
@@ -618,7 +632,7 @@ update_system() {
 
 install_base_tools() {
   info "Installing base development tools..."
-  if sudo pacman -S --needed git base-devel curl < /dev/tty 2>&1 | log_and_show "${LOG_FILE}"; then
+  if sudo stdbuf -oL pacman -S --needed git base-devel curl < /dev/tty 2>&1 | log_and_show "${LOG_FILE}"; then
     msg "Base tools installed."
   else
     fatal "Failed to install base development tools."
@@ -642,7 +656,7 @@ choose_aur_helper() {
       local -a stale_helpers=()
       mapfile -t stale_helpers < <(pacman -Qq 2> /dev/null | grep -E '^yay(-bin)?$' || true)
       if [[ ${#stale_helpers[@]} -gt 0 ]]; then
-        sudo pacman -Rns "${stale_helpers[@]}" < /dev/tty 2>&1 | log_and_show "${LOG_FILE}" || true
+        sudo stdbuf -oL pacman -Rns "${stale_helpers[@]}" < /dev/tty 2>&1 | log_and_show "${LOG_FILE}" || true
       fi
     fi
   fi
@@ -666,7 +680,7 @@ install_yay() {
   fi
 
   info "Building yay-bin package (this may take a few minutes)..."
-  if ! (cd "${TEMP_BUILD_DIR}" && makepkg -si < /dev/tty 2>&1 | log_and_show "${LOG_FILE}"); then
+  if ! (cd "${TEMP_BUILD_DIR}" && stdbuf -oL makepkg -si < /dev/tty 2>&1 | log_and_show "${LOG_FILE}"); then
     fatal "Failed to build and install yay-bin."
   fi
 
@@ -692,7 +706,7 @@ check_yay_linkage() {
       local -a stale_helpers=()
       mapfile -t stale_helpers < <(pacman -Qq 2> /dev/null | grep -E '^yay(-bin)?$' || true)
       if [[ ${#stale_helpers[@]} -gt 0 ]]; then
-        sudo pacman -Rns "${stale_helpers[@]}" < /dev/tty 2>&1 | log_and_show "${LOG_FILE}" || true
+        sudo stdbuf -oL pacman -Rns "${stale_helpers[@]}" < /dev/tty 2>&1 | log_and_show "${LOG_FILE}" || true
       fi
       install_yay
     fi
@@ -703,7 +717,7 @@ install_pacman_packages() {
   info "Installing official repository packages..."
   info "This may take several minutes..."
 
-  if sudo pacman -S --needed "${PACMAN_PACKAGES[@]}" < /dev/tty 2>&1 | log_and_show "${LOG_FILE}"; then
+  if sudo stdbuf -oL pacman -S --needed "${PACMAN_PACKAGES[@]}" < /dev/tty 2>&1 | log_and_show "${LOG_FILE}"; then
     msg "Official packages installed successfully."
   else
     fatal "Failed to install official repository packages."
@@ -719,7 +733,7 @@ install_aur_packages() {
   info "Installing: ${target_list% }"
   info "This may take several minutes..."
 
-  if "${AUR_HELPER}" -S --needed "${AUR_PACKAGES[@]}" < /dev/tty 2>&1 | log_and_show "${LOG_FILE}"; then
+  if stdbuf -oL "${AUR_HELPER}" -S --needed "${AUR_PACKAGES[@]}" < /dev/tty 2>&1 | log_and_show "${LOG_FILE}"; then
     msg "AUR packages installed successfully."
   else
     fatal "Failed to install AUR packages."
@@ -1050,7 +1064,7 @@ configure_shells() {
 
   if ! command -v fish &> /dev/null; then
     info "Installing fish..."
-    if sudo pacman -S --needed fish < /dev/tty 2>&1 | log_and_show "${LOG_FILE}"; then
+    if sudo stdbuf -oL pacman -S --needed fish < /dev/tty 2>&1 | log_and_show "${LOG_FILE}"; then
       msg "fish installed successfully."
     else
       warn "Failed to install fish. It may already be installed."
@@ -1081,7 +1095,7 @@ set_default_shell() {
   if [[ -z "${fish_bin}" ]]; then
     warn "fish is not installed. Installing it now..."
 
-    if sudo pacman -S --needed fish < /dev/tty 2>&1 | log_and_show "${LOG_FILE}"; then
+    if sudo stdbuf -oL pacman -S --needed fish < /dev/tty 2>&1 | log_and_show "${LOG_FILE}"; then
       fish_bin="$(command -v fish)" || fish_bin=""
       if [[ -z "${fish_bin}" ]]; then
         error "Failed to locate fish after installation."

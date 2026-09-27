@@ -33,11 +33,6 @@ readonly TOTAL_STEPS=15
 # Installation summary tracking
 declare -a INSTALL_SUMMARY=()
 
-# Shell configuration - fish is the default and only shell
-CONFIGURE_FISH=true
-
-# Whether the login shell was confirmed as fish, not merely requested
-SET_DEFAULT_SHELL_OK=false
 
 # Process ID for sudo keep-alive
 SUDO_PID=""
@@ -1052,9 +1047,8 @@ verify_polkit_agent() {
 
 configure_shells() {
   info "Configuring fish shell (default and only shell)..."
-  CONFIGURE_FISH=true
 
-  if ! binary_installed fish; then
+  if ! command -v fish &> /dev/null; then
     info "Installing fish..."
     if sudo pacman -S --needed fish < /dev/tty 2>&1 | log_and_show "${LOG_FILE}"; then
       msg "fish installed successfully."
@@ -1068,16 +1062,10 @@ configure_shells() {
   msg "Fish shell configuration ready."
 }
 
-# Resolves the account the installer is acting on. `$USER` is not reliable here:
-# it is inherited from the environment and is simply absent or wrong when the
-# script runs through sudo, a login manager, or a minimal container.
 target_username() {
   id -un 2> /dev/null || printf '%s' "${USER:-}"
 }
 
-# Reads the login shell straight from the passwd database.
-# `|| true` because a failing getent would otherwise trip pipefail and abort
-# the whole install through the ERR trap.
 current_login_shell() {
   getent passwd "$(target_username)" 2> /dev/null | cut -d: -f7 || true
 }
@@ -1087,10 +1075,6 @@ set_default_shell() {
   local current_shell=""
   current_shell="$(current_login_shell)"
 
-  # `command -v` exits non-zero when fish is absent, and a variable assignment
-  # whose command substitution fails is itself a simple command, so under set -e
-  # the bare form aborted the installer here and the fish-absent path below
-  # could never run. `|| :` keeps the assignment successful either way.
   local fish_bin
   fish_bin="$(command -v fish)" || fish_bin=""
 
@@ -1112,73 +1096,46 @@ set_default_shell() {
 
   if [[ "${current_shell}" == "${fish_bin}" ]]; then
     msg "fish is already your default shell."
-    SET_DEFAULT_SHELL_OK=true
     return 0
   fi
 
   info "Changing default shell to fish..."
 
-  # usermod does not require the shell to be listed in /etc/shells, but chsh
-  # does and so does anything else that validates login shells. Add the entry
-  # first so a later manual `chsh` or a stricter login stack keeps working.
   if ! grep -qx "${fish_bin}" /etc/shells 2> /dev/null; then
     info "Adding fish to /etc/shells..."
-
     printf "%s\n" "${fish_bin}" | sudo tee -a /etc/shells > /dev/null 2>&1 || true
-
     if ! grep -qx "${fish_bin}" /etc/shells 2> /dev/null; then
       error "${fish_bin} could not be added to /etc/shells."
-      info "Add it manually: ${CYAN}sudo sh -c 'echo ${fish_bin} >> /etc/shells'${NC}"
       return 0
     fi
   fi
 
-  # Rewrite the passwd entry through usermod under the sudo credentials the
-  # installer already holds (see check_sudo), never through chsh.
-  #
-  # This script is documented to run as `curl -fsSL ... | sh`, so stdin is the
-  # script's own source. chsh authenticates via pam_unix, whose conversation
-  # reads the password from stdin: it would eat a line of the running script,
-  # the "password" could never match, and the desynchronised read leaves bash
-  # reading garbage for the rest of the install. usermod neither prompts nor
-  # touches stdin, so neither failure mode can occur. It only edits the passwd
-  # entry, so the running shell is untouched and fish starts at next login.
   local user_name
   user_name="$(target_username)"
 
   if [[ -z "${user_name}" ]]; then
     error "Could not determine the current user."
-    info "Set it later with: ${CYAN}sudo usermod -s /usr/bin/fish <your-username>${NC}"
     return 0
   fi
 
   if ! sudo usermod -s "${fish_bin}" "${user_name}"; then
-    # shadow's chsh skips the password check entirely when run as root, so
-    # this fallback is equally prompt-free. It only matters on a system where
-    # usermod is unavailable.
     warn "usermod failed, falling back to chsh as root..."
-
     if sudo chsh -s "${fish_bin}" "${user_name}"; then
       warn "Used chsh instead of usermod."
     else
       error "Failed to change the default shell."
-      info "Set it later with: ${CYAN}sudo usermod -s ${fish_bin} ${user_name}${NC}"
       return 0
     fi
   fi
 
-  # Read the entry back: the change can silently not land, for example when
-  # nsswitch hands the account to something other than the local files.
   local new_shell=""
   new_shell="$(current_login_shell)"
 
   if [[ "${new_shell}" != "${fish_bin}" ]]; then
     error "The shell change reported success but the login shell is still ${new_shell:-unknown}."
-    info "Set it later with: ${CYAN}sudo usermod -s ${fish_bin} ${user_name}${NC}"
     return 0
   fi
 
-  SET_DEFAULT_SHELL_OK=true
   msg "Default shell changed to fish successfully."
   info "Your current shell keeps running as-is; fish starts from your next login."
 }
@@ -1664,11 +1621,7 @@ main() {
 
   step "Setting Fish as Default Shell"
   set_default_shell
-  if [[ "${SET_DEFAULT_SHELL_OK}" == "true" ]]; then
-    add_summary "Fish set as default shell"
-  else
-    add_summary "Default shell unchanged, still $(current_login_shell || echo unknown)"
-  fi
+  add_summary "Fish set as default shell"
 
   step "Creating Configuration Backup"
   create_backup

@@ -202,8 +202,14 @@ install_niri_stack() {
 
 install_nvidia() {
   local -a packages=(
-    dkms libva-nvidia-driver nvidia-open-dkms
+    libva-nvidia-driver
   )
+
+  if [[ "$(uname -r)" == *-zen* ]]; then
+    packages=("dkms" "linux-zen-headers" "${packages[@]}" "nvidia-open-dkms")
+  else
+    packages+=("nvidia-open")
+  fi
 
   read -r -p "Install xwayland-satellite? (Y/n): " reply < /dev/tty || true
   if [[ -z "${reply}" || "${reply}" =~ ^[Yy]$ ]]; then

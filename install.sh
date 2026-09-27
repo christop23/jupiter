@@ -1306,17 +1306,6 @@ clone_or_update_dotfiles() {
   else
     clone_dotfiles
   fi
-
-  # Only a checkout can have submodules, and the directory is not necessarily
-  # one: it is left alone when it turns out not to be a repository.
-  if [[ -d "${DOTDIR}/.git" ]]; then
-    info "Updating git submodules..."
-    if retry_command 3 git -C "${DOTDIR}" submodule update --init --recursive 2>&1 | log_and_show "${LOG_FILE}"; then
-      msg "Submodules updated."
-    else
-      warn "Failed to update submodules after retries. Continuing anyway..."
-    fi
-  fi
 }
 
 clone_dotfiles() {

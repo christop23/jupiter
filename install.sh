@@ -505,8 +505,21 @@ create_backup() {
         ((++backed_up)) || true
       else
         warn "Failed to backup: ${folder}"
-        warn "It will be left in place rather than deleted, so nothing is lost."
-        BACKUP_FAILED+=("${folder}")
+        read -r -p "Retry backup of ${folder}? (Y/n): " reply < /dev/tty || true
+        if [[ -z "${reply}" || "${reply}" =~ ^[Yy]$ ]]; then
+          if cp -rL "${target}" "${BACKUP_DIR}/" 2> /dev/null; then
+            rm -rf "${target}"
+            info "Backed up: ${folder}"
+            ((++backed_up)) || true
+          else
+            warn "Failed to backup: ${folder} again"
+            warn "It will be left in place rather than deleted, so nothing is lost."
+            BACKUP_FAILED+=("${folder}")
+          fi
+        else
+          warn "It will be left in place rather than deleted, so nothing is lost."
+          BACKUP_FAILED+=("${folder}")
+        fi
       fi
     fi
   done
@@ -530,8 +543,21 @@ create_backup() {
         ((++backed_up)) || true
       else
         warn "Failed to backup: ${file}"
-        warn "It will be left in place rather than deleted, so nothing is lost."
-        BACKUP_FAILED+=("${file}")
+        read -r -p "Retry backup of ${file}? (Y/n): " reply < /dev/tty || true
+        if [[ -z "${reply}" || "${reply}" =~ ^[Yy]$ ]]; then
+          if cp -L "${target}" "${BACKUP_DIR}/" 2> /dev/null; then
+            rm -f "${target}"
+            info "Backed up: ${file}"
+            ((++backed_up)) || true
+          else
+            warn "Failed to backup: ${file} again"
+            warn "It will be left in place rather than deleted, so nothing is lost."
+            BACKUP_FAILED+=("${file}")
+          fi
+        else
+          warn "It will be left in place rather than deleted, so nothing is lost."
+          BACKUP_FAILED+=("${file}")
+        fi
       fi
     fi
   done

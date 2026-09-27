@@ -28,7 +28,9 @@ AUR_HELPER=""
 
 # Progress tracking
 CURRENT_STEP=0
-readonly TOTAL_STEPS=15
+# Counted from the step calls in main(), which is 18. It was 15 while main()
+# had grown to 19, so the tail of every run announced itself as "STEP 19/15".
+readonly TOTAL_STEPS=18
 
 # Installation summary tracking
 declare -a INSTALL_SUMMARY=()
@@ -505,8 +507,9 @@ create_backup() {
   # Populated by basename whenever a copy fails, and read back by
   # create_symlinks to refuse the removal that would otherwise destroy the only
   # remaining copy. cp -rL fails on a single dangling symlink, a symlink loop, a
-  # socket or a full disk, and the target was being rm -rf'd three steps later
-  # regardless, which left the user with neither the config nor a backup.
+  # socket or a full disk, and create_symlinks removes each target it is about
+  # to replace, which would have left the user with neither the config nor a
+  # backup.
   BACKUP_FAILED=()
 
   for folder in "${CONFIG_FOLDERS[@]}"; do
@@ -1371,18 +1374,15 @@ validate_repo_structure() {
   fi
 }
 
-delete_config_folder() {
-  info "Deleting .config folder..."
-  if [[ -d "${CONFIG_DIR}" ]]; then
-    rm -rf "${CONFIG_DIR}"
-    msg ".config folder deleted."
-  else
-    info ".config folder does not exist, nothing to delete."
-  fi
-}
-
 create_symlinks() {
   msg "Creating symbolic links to ~/.config..."
+
+  # The parent has to exist. ln -s does not create it, and without it every
+  # single link fails with ENOENT and the run ends with an empty ~/.config and
+  # nothing to show for it. create_backup mkdir -p's the directory too, so this
+  # is the belt to that braces rather than the thing holding it up.
+  mkdir -p "${CONFIG_DIR}" || fatal "Cannot create ${CONFIG_DIR}"
+
   local linked=0
   local skipped=0
 
@@ -1659,10 +1659,6 @@ main() {
   step "Validating Repository Structure"
   validate_repo_structure
   add_summary "Repository structure validated"
-
-  step "Deleting .config Folder"
-  delete_config_folder
-  add_summary ".config folder deleted"
 
   step "Creating Symbolic Links"
   create_symlinks

@@ -1,0 +1,536 @@
+#!/usr/bin/env bash
+
+set -Eeuo pipefail
+IFS=$'\n\t'
+
+# ==========================
+# CONFIGURATION
+# ==========================
+
+readonly REPO_URL="https://github.com/christop23/jupiter.git"
+readonly CONFIG_DIR="${HOME}/.config"
+readonly JUPITER_TEMP="${HOME}/jupiter_temp"
+readonly LOG_FILE="${JUPITER_TEMP}/jupiter-base-install-$(date +%Y%m%d_%H%M%S).log"
+
+# Process ID for sudo keep-alive
+SUDO_PID=""
+
+# Progress tracking
+CURRENT_STEP=0
+readonly TOTAL_STEPS=7
+
+# ==========================
+# COLOR OUTPUT
+# ==========================
+
+readonly GREEN='\033[0;32m'
+readonly BLUE='\033[0;34m'
+readonly YELLOW='\033[1;33m'
+readonly RED='\033[0;31m'
+readonly CYAN='\033[0;36m'
+readonly MAGENTA='\033[0;35m'
+readonly BOLD='\033[1m'
+readonly NC='\033[0m'
+
+# ==========================
+# LOGGING & OUTPUT FUNCTIONS
+# ==========================
+
+log() {
+  local timestamp
+  timestamp="$(date +'%Y-%m-%d %H:%M:%S')"
+  printf "[%s] %s\n" "${timestamp}" "$*" 2> /dev/null >> "${LOG_FILE}" || true
+}
+
+msg() {
+  printf "${GREEN}==>${NC} %b\n" "$1"
+  log "INFO: $1"
+}
+
+info() {
+  printf "${BLUE}==>${NC} %b\n" "$1"
+  log "INFO: $1"
+}
+
+warn() {
+  printf "${YELLOW}[WARNING]${NC} %b\n" "$1"
+  log "WARNING: $1"
+}
+
+error() {
+  printf "${RED}[ERROR]${NC} %b\n" "$1" >&2
+  log "ERROR: $1"
+}
+
+log_and_show() {
+  tee -a "${LOG_FILE}" || true
+}
+
+fatal() {
+  error "$1"
+  error "Installation failed. Check log file: ${LOG_FILE}"
+  exit 1
+}
+
+step() {
+  ((++CURRENT_STEP)) || true
+  printf "\n"
+  printf "${CYAN}${BOLD}[Step %d/%d]${NC} ${MAGENTA}%s${NC}\n" "${CURRENT_STEP}" "${TOTAL_STEPS}" "$1"
+  printf "${CYAN}─────────────────────────────────────────────────────────${NC}\n"
+  log "STEP ${CURRENT_STEP}/${TOTAL_STEPS}: $1"
+}
+
+# ==========================
+# CLEANUP FUNCTIONS
+# ==========================
+
+cleanup_sudo_keepalive() {
+  if [[ -n "${SUDO_PID}" ]] && kill -0 "${SUDO_PID}" 2> /dev/null; then
+    kill "${SUDO_PID}" 2> /dev/null || true
+    wait "${SUDO_PID}" 2> /dev/null || true
+  fi
+}
+
+cleanup_on_exit() {
+  local exit_code=$?
+  cleanup_sudo_keepalive
+  if [[ ${exit_code} -ne 0 ]]; then
+    error "Script exited with error code: ${exit_code}"
+  fi
+}
+
+cleanup_on_error() {
+  local line_no=$1
+  error "Error occurred on line ${line_no}"
+  cleanup_on_exit
+}
+
+# ==========================
+# UTILITY FUNCTIONS
+# ==========================
+
+check_internet() {
+  info "Checking internet connectivity..."
+  if ! command -v curl &> /dev/null; then
+    warn "curl not found, will be installed with base tools"
+    return 0
+  fi
+  local endpoints=(
+    "https://archlinux.org"
+    "https://google.com"
+    "https://cloudflare.com"
+  )
+  local connected=false
+  for endpoint in "${endpoints[@]}"; do
+    if curl -s --connect-timeout 5 --max-time 10 "${endpoint}" > /dev/null 2>&1; then
+      connected=true
+      break
+    fi
+  done
+  if [[ "${connected}" == "false" ]]; then
+    fatal "No internet connection. Please connect to the internet and try again."
+  fi
+  msg "Internet connection verified."
+}
+
+check_arch_based() {
+  info "Verifying Arch-based system..."
+  if ! command -v pacman &> /dev/null; then
+    fatal "This script requires pacman package manager (Arch-based distribution)."
+  fi
+  local distro_name="Unknown"
+  if [[ -f /etc/os-release ]]; then
+    distro_name="$(grep -E '^NAME=' /etc/os-release | cut -d'"' -f2)"
+  fi
+  msg "Arch-based system detected: ${distro_name}"
+}
+
+check_not_root() {
+  if [[ ${EUID} -eq 0 ]]; then
+    fatal "Do not run this script as root. Run as a regular user with sudo privileges."
+  fi
+}
+
+check_sudo() {
+  info "Verifying sudo privileges..."
+  if ! sudo -v; then
+    fatal "Sudo privileges required. Please ensure you have sudo access."
+  fi
+  (
+    trap - ERR
+    while true; do
+      sudo -n -v || exit 0
+      sleep 50
+    done
+  ) &
+  SUDO_PID=$!
+  msg "Sudo privileges verified."
+}
+
+has_nvidia_gpu() {
+  if command -v lspci &> /dev/null; then
+    lspci 2> /dev/null |
+      grep -iE '(VGA compatible controller|3D controller|Display controller)' |
+      grep -i 'nvidia' > /dev/null
+    return $?
+  fi
+  local device vendor class
+  for device in /sys/bus/pci/devices/*/; do
+    [[ -r "${device}vendor" && -r "${device}class" ]] || continue
+    vendor=""
+    class=""
+    read -r vendor < "${device}vendor" || true
+    read -r class < "${device}class" || true
+    vendor="${vendor#0x}"
+    class="${class#0x}"
+    if [[ "${vendor}" != "10de" ]]; then
+      continue
+    fi
+    if [[ "${class}" == 0300* || "${class}" == 0302* || "${class}" == 0308* ]]; then
+      return 0
+    fi
+  done
+  return 1
+}
+
+detect_kernel_flavour() {
+  case "$(uname -r)" in
+    *-zen*) printf 'zen' ;;
+    *-lts*) printf 'lts' ;;
+    *-arch*) printf 'linux' ;;
+    *) printf 'unknown' ;;
+  esac
+}
+
+# ==========================
+# PACKAGE MANAGEMENT
+# ==========================
+
+update_system() {
+  info "Updating system packages..."
+  if sudo pacman -Syu < /dev/tty 2>&1 | log_and_show "${LOG_FILE}"; then
+    msg "System updated successfully."
+  else
+    fatal "Failed to update system packages."
+  fi
+}
+
+install_base_tools() {
+  info "Installing base development tools..."
+  if sudo pacman -S --needed git base-devel curl < /dev/tty 2>&1 | log_and_show "${LOG_FILE}"; then
+    msg "Base tools installed."
+  else
+    fatal "Failed to install base development tools."
+  fi
+}
+
+install_niri_stack() {
+  info "Installing niri, alacritty, greetd, tuigreet..."
+  # All packages explicitly named to avoid provider prompts.
+  # greetd-tuigreet is named explicitly to settle the greetd-greeter virtual.
+  if sudo pacman -S --needed niri alacritty greetd greetd-tuigreet < /dev/tty 2>&1 | log_and_show "${LOG_FILE}"; then
+    msg "Niri stack installed successfully."
+  else
+    fatal "Failed to install niri stack."
+  fi
+}
+
+install_nvidia() {
+  info "Checking for NVIDIA graphics hardware..."
+  if ! has_nvidia_gpu; then
+    warn "No NVIDIA display device detected. Skipping NVIDIA driver."
+    return 0
+  fi
+  msg "NVIDIA display device detected."
+
+  local flavour
+  flavour="$(detect_kernel_flavour)"
+
+  local driver
+  case "${flavour}" in
+    linux) driver="nvidia-open" ;;
+    lts)   driver="nvidia-open-lts" ;;
+    *)     driver="nvidia-open-dkms" ;;
+  esac
+
+  local -a packages=(
+    "${driver}"
+    nvidia-utils nvidia-settings
+    libva-utils libvdpau vulkan-icd-loader
+  )
+
+  # DKMS needs headers
+  if [[ "${driver}" == "nvidia-open-dkms" ]]; then
+    case "${flavour}" in
+      zen)  packages+=("linux-zen-headers") ;;
+      lts)  packages+=("linux-lts-headers") ;;
+      *)    packages+=("linux-headers") ;;
+    esac
+  fi
+
+  info "Installing NVIDIA packages: ${packages[*]}"
+  if sudo pacman -S --needed "${packages[@]}" < /dev/tty 2>&1 | log_and_show "${LOG_FILE}"; then
+    msg "NVIDIA packages installed successfully."
+  else
+    fatal "Failed to install NVIDIA packages."
+  fi
+}
+
+# ==========================
+# NIRI CONFIG (TEMPORARY)
+# ==========================
+
+write_temp_niri_config() {
+  info "Writing temporary niri config..."
+  mkdir -p "${CONFIG_DIR}/niri"
+
+  cat > "${CONFIG_DIR}/niri/config.kdl" << 'NIRI_CONFIG'
+// Temporary niri config for first boot.
+// This will be replaced by the full dotfiles config when you run install.sh.
+
+binds {
+    MOD+RETURN { spawn-sh "alacritty"; }
+    MOD+ESCAPE { toggle-overview; }
+    MOD+Q { close-window; }
+    MOD+H { focus-column-left; }
+    MOD+J { focus-workspace-down; }
+    MOD+K { focus-workspace-up; }
+    MOD+L { focus-column-right; }
+    MOD+LEFT { focus-column-left; }
+    MOD+DOWN { focus-window-down; }
+    MOD+UP { focus-window-up; }
+    MOD+RIGHT { focus-column-right; }
+    MOD+SHIFT+LEFT { move-column-left; }
+    MOD+SHIFT+DOWN { move-window-down; }
+    MOD+SHIFT+UP { move-window-up; }
+    MOD+SHIFT+RIGHT { move-column-right; }
+    MOD+1 { focus-workspace 1; }
+    MOD+2 { focus-workspace 2; }
+    MOD+3 { focus-workspace 3; }
+    MOD+4 { focus-workspace 4; }
+    MOD+5 { focus-workspace 5; }
+    MOD+6 { focus-workspace 6; }
+    MOD+7 { focus-workspace 7; }
+    MOD+8 { focus-workspace 8; }
+    MOD+9 { focus-workspace 9; }
+    MOD+SHIFT+1 { move-column-to-workspace 1; }
+    MOD+SHIFT+2 { move-column-to-workspace 2; }
+    MOD+SHIFT+3 { move-column-to-workspace 3; }
+    MOD+SHIFT+4 { move-column-to-workspace 4; }
+    MOD+SHIFT+5 { move-column-to-workspace 5; }
+    MOD+SHIFT+6 { move-column-to-workspace 6; }
+    MOD+SHIFT+7 { move-column-to-workspace 7; }
+    MOD+SHIFT+8 { move-column-to-workspace 8; }
+    MOD+SHIFT+9 { move-column-to-workspace 9; }
+    MOD+TAB { focus-workspace-previous; }
+    MOD+T { toggle-window-floating; }
+    MOD+F { fullscreen-window; }
+    MOD+M { maximize-column; }
+    MOD+C { center-column; }
+    MOD+BRACKETLEFT { set-column-width "-10%"; }
+    MOD+BRACKETRIGHT { set-column-width "+10%"; }
+    MOD+S { screenshot; }
+    MOD+SHIFT+S { screenshot-screen write-to-disk=true; }
+    MOD+CTRL+S { screenshot-window write-to-disk=true; }
+}
+
+layout {
+    gaps 0
+    center-focused-column "on-overflow"
+    background-color "transparent"
+    focus-ring {
+        width 2
+        active-color "#1E1E2E"
+    }
+    insert-hint {
+        color "#1E1E2E"
+    }
+    struts {}
+}
+
+input {
+    keyboard {
+        xkb {
+            layout "us"
+            options "caps:escape"
+        }
+    }
+    touchpad {
+        tap
+        natural-scroll
+    }
+    focus-follows-mouse
+    workspace-auto-back-and-forth
+}
+
+prefer-no-csd
+screenshot-path "~/Pictures/Screenshots/%Y-%m-%d %H-%M-%S.png"
+NIRI_CONFIG
+
+  msg "Temporary niri config written to ${CONFIG_DIR}/niri/config.kdl"
+}
+
+# ==========================
+# GREETER CONFIGURATION
+# ==========================
+
+configure_greeter() {
+  info "Configuring greetd + tuigreet..."
+
+  # Disable conflicting display managers
+  local service
+  for service in lightdm gdm sddm ly xdm lxdm; do
+    if systemctl list-unit-files "${service}.service" &> /dev/null; then
+      if systemctl is-enabled --quiet "${service}.service" &> /dev/null; then
+        sudo systemctl disable "${service}.service" > /dev/null 2>&1 || true
+        msg "Disabled conflicting display manager: ${service}"
+      fi
+    fi
+  done
+
+  # Write greetd config
+  local config_file="/etc/greetd/config.toml"
+  if [[ -f "${config_file}" ]]; then
+    sudo cp -f "${config_file}" "${config_file}.jupiter-backup" 2> /dev/null || true
+  fi
+
+  sudo tee "${config_file}" > /dev/null 2>&1 << 'GREETER_CONFIG'
+[terminal]
+vt = 1
+
+[default_session]
+command = "tuigreet --time --remember --asterisks --cmd niri-session"
+user = "greeter"
+GREETER_CONFIG
+
+  msg "greetd configuration written."
+
+  # Prepare tuigreet cache
+  sudo mkdir -p /var/cache/tuigreet
+  sudo chown greeter:greeter /var/cache/tuigreet
+  sudo chmod 0755 /var/cache/tuigreet
+
+  # Enable greetd
+  if sudo systemctl enable greetd.service > /dev/null 2>&1; then
+    msg "greetd enabled. It will start on your next boot."
+  else
+    fatal "Failed to enable greetd.service."
+  fi
+}
+
+# ==========================
+# MAIN INSTALLATION FLOW
+# ==========================
+
+print_header() {
+  printf "\n"
+  printf "${GREEN}${BOLD}"
+  cat << "EOF"
+════════════════════════════════════════════════════════════
+   JUPITER - Base Installer v1.0
+   Minimal setup for first boot (niri + greetd)
+════════════════════════════════════════════════════════════
+EOF
+  printf "${NC}"
+  printf "\n"
+  printf "Log file: ${BLUE}%s${NC}\n" "${LOG_FILE}"
+  printf "\n"
+}
+
+print_summary() {
+  printf "\n"
+  printf "${GREEN}${BOLD}"
+  cat << "EOF"
+════════════════════════════════════════════════════════════
+   BASE INSTALLATION COMPLETED!
+   niri is ready for first boot.
+════════════════════════════════════════════════════════════
+EOF
+  printf "${NC}\n"
+  printf "\n"
+  printf "${MAGENTA}${BOLD}Next Steps:${NC}\n"
+  printf "  1. Reboot your system\n"
+  printf "  2. Log in through tuigreet (niri will start)\n"
+  printf "  3. Once in niri, run install.sh for the full desktop setup\n"
+  printf "\n"
+}
+
+main() {
+  mkdir -p "${JUPITER_TEMP}"
+
+  print_header
+
+  step "Pre-flight System Checks"
+  check_not_root
+  check_arch_based
+  check_sudo
+  check_internet
+
+  step "System Update"
+  update_system
+
+  step "Installing Base Development Tools"
+  install_base_tools
+
+  step "Installing Niri Stack"
+  install_niri_stack
+
+  step "Installing NVIDIA Driver"
+  install_nvidia
+
+  step "Writing Temporary Niri Config"
+  write_temp_niri_config
+
+  step "Configuring Greetd + Tuigreet"
+  configure_greeter
+
+  print_summary
+
+  # Cleanup
+  if [[ -d "${JUPITER_TEMP}" ]]; then
+    rm -rf "${JUPITER_TEMP}"
+  fi
+}
+
+# ==========================
+# ARGUMENT PARSING
+# ==========================
+
+parse_arguments() {
+  while [[ $# -gt 0 ]]; do
+    case "$1" in
+      -h | --help)
+        echo "Usage: ${0##*/} [OPTIONS]"
+        echo ""
+        echo "Jupiter Base Installer - Minimal setup for first boot"
+        echo ""
+        echo "OPTIONS:"
+        echo "  -h, --help      Display this help message and exit"
+        echo "  -v, --version   Display version information"
+        echo ""
+        exit 0
+        ;;
+      -v | --version)
+        echo "Jupiter Base Installer v1.0"
+        exit 0
+        ;;
+      *)
+        error "Unknown option: $1"
+        exit 1
+        ;;
+    esac
+    shift
+  done
+}
+
+# ==========================
+# ERROR HANDLING & EXECUTION
+# ==========================
+
+trap 'cleanup_on_error ${LINENO}' ERR
+trap 'cleanup_on_exit' EXIT
+trap 'cleanup_on_exit; exit 130' INT
+trap 'cleanup_on_exit; exit 143' TERM
+
+parse_arguments "$@"
+main

@@ -205,6 +205,11 @@ install_nvidia() {
     dkms libva-nvidia-driver nvidia-open-dkms
   )
 
+  read -r -p "Install xwayland-satellite? (Y/n): " reply < /dev/tty || true
+  if [[ -z "${reply}" || "${reply}" =~ ^[Yy]$ ]]; then
+    packages+=("xwayland-satellite")
+  fi
+
   info "Installing NVIDIA packages: ${packages[*]}"
   if sudo pacman -S --needed "${packages[@]}" < /dev/tty 2>&1 | log_and_show "${LOG_FILE}"; then
     msg "NVIDIA packages installed successfully."

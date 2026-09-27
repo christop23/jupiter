@@ -68,7 +68,7 @@ readonly AUR_PACKAGES=(
 readonly PACMAN_PACKAGES=(
   niri waybar fish fastfetch mako alacritty starship eza
   zathura zathura-pdf-mupdf ttf-jetbrains-mono-nerd ttf-nerd-fonts-symbols
-  qt5-wayland qt6-wayland polkit-gnome unzip jq unrar 7zip man-db bat
+  qt5-wayland qt6-wayland polkit-gnome jq 7zip man-db bat
   gtklock curl libnotify pavucontrol thunar awww matugen librewolf bottom
   # Referenced by the configs, so installed rather than left dangling:
   #   qt5ct, qt6ct        the platform-theme plugin niri/config.kdl names with

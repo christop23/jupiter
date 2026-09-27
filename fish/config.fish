@@ -135,13 +135,13 @@ function extract
             case '*.bz2'
                 bunzip2 "$file"
             case '*.rar'
-                unrar x "$file"
+                7z x "$file"
             case '*.gz'
                 gunzip "$file"
             case '*.tar'
                 tar xvf "$file"
             case '*.zip'
-                unzip "$file"
+                7z x "$file"
             case '*.Z'
                 uncompress "$file"
             case '*.7z'

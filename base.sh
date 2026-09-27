@@ -17,7 +17,7 @@ SUDO_PID=""
 
 # Progress tracking
 CURRENT_STEP=0
-readonly TOTAL_STEPS=7
+readonly TOTAL_STEPS=6
 
 # ==========================
 # COLOR OUTPUT
@@ -219,100 +219,6 @@ install_nvidia() {
 }
 
 # ==========================
-# NIRI CONFIG (TEMPORARY)
-# ==========================
-
-write_temp_niri_config() {
-  info "Writing temporary niri config..."
-  mkdir -p "${CONFIG_DIR}/niri"
-
-  cat > "${CONFIG_DIR}/niri/config.kdl" << 'NIRI_CONFIG'
-// Temporary niri config for first boot.
-// This will be replaced by the full dotfiles config when you run install.sh.
-
-binds {
-    MOD+RETURN { spawn-sh "alacritty"; }
-    MOD+ESCAPE { toggle-overview; }
-    MOD+Q { close-window; }
-    MOD+H { focus-column-left; }
-    MOD+J { focus-workspace-down; }
-    MOD+K { focus-workspace-up; }
-    MOD+L { focus-column-right; }
-    MOD+LEFT { focus-column-left; }
-    MOD+DOWN { focus-window-down; }
-    MOD+UP { focus-window-up; }
-    MOD+RIGHT { focus-column-right; }
-    MOD+SHIFT+LEFT { move-column-left; }
-    MOD+SHIFT+DOWN { move-window-down; }
-    MOD+SHIFT+UP { move-window-up; }
-    MOD+SHIFT+RIGHT { move-column-right; }
-    MOD+1 { focus-workspace 1; }
-    MOD+2 { focus-workspace 2; }
-    MOD+3 { focus-workspace 3; }
-    MOD+4 { focus-workspace 4; }
-    MOD+5 { focus-workspace 5; }
-    MOD+6 { focus-workspace 6; }
-    MOD+7 { focus-workspace 7; }
-    MOD+8 { focus-workspace 8; }
-    MOD+9 { focus-workspace 9; }
-    MOD+SHIFT+1 { move-column-to-workspace 1; }
-    MOD+SHIFT+2 { move-column-to-workspace 2; }
-    MOD+SHIFT+3 { move-column-to-workspace 3; }
-    MOD+SHIFT+4 { move-column-to-workspace 4; }
-    MOD+SHIFT+5 { move-column-to-workspace 5; }
-    MOD+SHIFT+6 { move-column-to-workspace 6; }
-    MOD+SHIFT+7 { move-column-to-workspace 7; }
-    MOD+SHIFT+8 { move-column-to-workspace 8; }
-    MOD+SHIFT+9 { move-column-to-workspace 9; }
-    MOD+TAB { focus-workspace-previous; }
-    MOD+T { toggle-window-floating; }
-    MOD+F { fullscreen-window; }
-    MOD+M { maximize-column; }
-    MOD+C { center-column; }
-    MOD+BRACKETLEFT { set-column-width "-10%"; }
-    MOD+BRACKETRIGHT { set-column-width "+10%"; }
-    MOD+S { screenshot; }
-    MOD+SHIFT+S { screenshot-screen write-to-disk=true; }
-    MOD+CTRL+S { screenshot-window write-to-disk=true; }
-}
-
-layout {
-    gaps 0
-    center-focused-column "on-overflow"
-    background-color "transparent"
-    focus-ring {
-        width 2
-        active-color "#1E1E2E"
-    }
-    insert-hint {
-        color "#1E1E2E"
-    }
-    struts {}
-}
-
-input {
-    keyboard {
-        xkb {
-            layout "us"
-            options "caps:escape"
-        }
-    }
-    touchpad {
-        tap
-        natural-scroll
-    }
-    focus-follows-mouse
-    workspace-auto-back-and-forth
-}
-
-prefer-no-csd
-screenshot-path "~/Pictures/Screenshots/%Y-%m-%d %H-%M-%S.png"
-NIRI_CONFIG
-
-  msg "Temporary niri config written to ${CONFIG_DIR}/niri/config.kdl"
-}
-
-# ==========================
 # GREETER CONFIGURATION
 # ==========================
 
@@ -346,11 +252,6 @@ user = "greeter"
 GREETER_CONFIG
 
   msg "greetd configuration written."
-
-  # Prepare tuigreet cache
-  sudo mkdir -p /var/cache/tuigreet
-  sudo chown greeter:greeter /var/cache/tuigreet
-  sudo chmod 0755 /var/cache/tuigreet
 
   # Enable greetd
   if sudo systemctl enable greetd.service > /dev/null 2>&1; then
@@ -419,9 +320,6 @@ main() {
 
   step "Installing NVIDIA Packages"
   install_nvidia
-
-  step "Writing Temporary Niri Config"
-  write_temp_niri_config
 
   step "Configuring Greetd + Tuigreet"
   configure_greeter

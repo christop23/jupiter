@@ -54,7 +54,9 @@ readonly CONFIG_FOLDERS=(
 # below are a floor and not an exact size.
 readonly CONFIG_FILES=("pavucontrol.ini")
 
-# AUR packages to install
+# AUR packages. vicinae-bin is the only one, and every one of its runtime
+# dependencies is named in PACMAN_PACKAGES above, so this step resolves nothing
+# and just installs what yay built.
 readonly AUR_PACKAGES=(
   vicinae-bin
 )
@@ -71,6 +73,15 @@ readonly PACMAN_PACKAGES=(
   #                       the Colloid theme in ~/.themes
   #   networkmanager      nmtui, which fish/config.fish aliases as `wifi`
   qt5ct qt6ct networkmanager
+  # vicinae-bin is the only AUR package, and these are its runtime
+  # dependencies as of 0.29.0, named here rather than left to yay. A
+  # dependency with more than one provider is what makes a transaction stop
+  # and ask, and the provider list goes to a stdout that is a pipe here, so
+  # the options can sit in a buffer the reader never sees. Installed up
+  # front, yay resolves nothing and only installs the package it built.
+  # Re-check these when the AUR package bumps its dependency list.
+  nodejs qt6-base qt6-declarative qt6-svg layer-shell-qt libqalculate
+  qtkeychain-qt6 syntax-highlighting
 )
 
 # The polkit agent that niri starts, by absolute path, because that is the only

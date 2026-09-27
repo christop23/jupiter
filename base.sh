@@ -167,41 +167,6 @@ check_sudo() {
   msg "Sudo privileges verified."
 }
 
-has_nvidia_gpu() {
-  if command -v lspci &> /dev/null; then
-    lspci 2> /dev/null |
-      grep -iE '(VGA compatible controller|3D controller|Display controller)' |
-      grep -i 'nvidia' > /dev/null
-    return $?
-  fi
-  local device vendor class
-  for device in /sys/bus/pci/devices/*/; do
-    [[ -r "${device}vendor" && -r "${device}class" ]] || continue
-    vendor=""
-    class=""
-    read -r vendor < "${device}vendor" || true
-    read -r class < "${device}class" || true
-    vendor="${vendor#0x}"
-    class="${class#0x}"
-    if [[ "${vendor}" != "10de" ]]; then
-      continue
-    fi
-    if [[ "${class}" == 0300* || "${class}" == 0302* || "${class}" == 0308* ]]; then
-      return 0
-    fi
-  done
-  return 1
-}
-
-detect_kernel_flavour() {
-  case "$(uname -r)" in
-    *-zen*) printf 'zen' ;;
-    *-lts*) printf 'lts' ;;
-    *-arch*) printf 'linux' ;;
-    *) printf 'unknown' ;;
-  esac
-}
-
 # ==========================
 # PACKAGE MANAGEMENT
 # ==========================
@@ -236,37 +201,9 @@ install_niri_stack() {
 }
 
 install_nvidia() {
-  info "Checking for NVIDIA graphics hardware..."
-  if ! has_nvidia_gpu; then
-    warn "No NVIDIA display device detected. Skipping NVIDIA driver."
-    return 0
-  fi
-  msg "NVIDIA display device detected."
-
-  local flavour
-  flavour="$(detect_kernel_flavour)"
-
-  local driver
-  case "${flavour}" in
-    linux) driver="nvidia-open" ;;
-    lts)   driver="nvidia-open-lts" ;;
-    *)     driver="nvidia-open-dkms" ;;
-  esac
-
   local -a packages=(
-    "${driver}"
-    nvidia-utils nvidia-settings
-    libva-utils libvdpau vulkan-icd-loader
+    dkms libva-nvidia-driver nvidia-open-dkms
   )
-
-  # DKMS needs headers
-  if [[ "${driver}" == "nvidia-open-dkms" ]]; then
-    case "${flavour}" in
-      zen)  packages+=("linux-zen-headers") ;;
-      lts)  packages+=("linux-lts-headers") ;;
-      *)    packages+=("linux-headers") ;;
-    esac
-  fi
 
   info "Installing NVIDIA packages: ${packages[*]}"
   if sudo pacman -S --needed "${packages[@]}" < /dev/tty 2>&1 | log_and_show "${LOG_FILE}"; then
@@ -475,7 +412,7 @@ main() {
   step "Installing Niri Stack"
   install_niri_stack
 
-  step "Installing NVIDIA Driver"
+  step "Installing NVIDIA Packages"
   install_nvidia
 
   step "Writing Temporary Niri Config"

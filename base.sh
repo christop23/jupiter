@@ -430,7 +430,10 @@ main() {
 
   # Cleanup
   if [[ -d "${JUPITER_TEMP}" ]]; then
-    rm -rf "${JUPITER_TEMP}"
+    read -r -p "Delete ${JUPITER_TEMP}? (y/N): " reply < /dev/tty || true
+    if [[ "${reply}" =~ ^[Yy]$ ]]; then
+      rm -rf "${JUPITER_TEMP}"
+    fi
   fi
 }
 

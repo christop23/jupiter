@@ -1589,13 +1589,6 @@ EOF
   printf "  • awww-daemon, waybar, vicinae, and polkit start automatically\n"
   printf "  • gtklock can be triggered manually or via idle timeout\n"
   printf "\n"
-
-  if [[ -d "${JUPITER_TEMP}" ]]; then
-    info "Cleaning up temporary installer files..."
-    rm -rf "${JUPITER_TEMP}"
-    msg "Removed ${JUPITER_TEMP} (backup and log)."
-  fi
-  printf "\n"
   separator
 }
 
@@ -1691,6 +1684,21 @@ main() {
   add_summary "Systemd services configured"
 
   print_summary
+
+  # Cleanup, asked rather than done outright, the same way base.sh asks. The
+  # directory holds the config backup taken before the dotfiles were linked
+  # over them, and the log that every `fatal` points at, whose path was
+  # printed only in the header at the start of the run. Default is to keep it:
+  # an empty answer is not consent.
+  if [[ -d "${JUPITER_TEMP}" ]]; then
+    read -r -p "Delete ${JUPITER_TEMP} (backup and log)? (y/N): " reply < /dev/tty || true
+    if [[ "${reply}" =~ ^[Yy]$ ]]; then
+      rm -rf "${JUPITER_TEMP}"
+      msg "Removed ${JUPITER_TEMP} (backup and log)."
+    else
+      msg "Kept ${JUPITER_TEMP}. Log file: ${LOG_FILE}"
+    fi
+  fi
 }
 
 # ==========================

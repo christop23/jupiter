@@ -115,36 +115,12 @@ function mkcd
     mkdir -p "$argv[1]"; and cd "$argv[1]"
 end
 
-# Extract archives
-#
-# Order matters: *.tar.bz2 and *.tar.gz come before *.bz2 and *.gz, and *.tar
-# before the catch-all, or the shorter patterns swallow the compound ones.
-#
-# "$file" is quoted throughout. The wallpapers shipped in this repo have spaces
-# in their names, so an unquoted archive path is not hypothetical here.
+# Extract archives — 7z handles all major formats
 function extract
     set file $argv[1]
     if test -f "$file"
         switch $file
-            case '*.tar.bz2'
-                tar xjf "$file"
-            case '*.tar.gz' '*.tgz'
-                tar xzf "$file"
-            case '*.tbz2' '*.tbz'
-                tar xjf "$file"
-            case '*.bz2'
-                bunzip2 "$file"
-            case '*.rar'
-                7z x "$file"
-            case '*.gz'
-                gunzip "$file"
-            case '*.tar'
-                tar xvf "$file"
-            case '*.zip'
-                7z x "$file"
-            case '*.Z'
-                uncompress "$file"
-            case '*.7z'
+            case '*.tar' '*.tar.gz' '*.tgz' '*.tar.bz2' '*.tbz2' '*.tbz' '*.tar.xz' '*.txz' '*.gz' '*.bz2' '*.xz' '*.zip' '*.rar' '*.7z'
                 7z x "$file"
             case '*'
                 echo "'$file' cannot be extracted via extract()"

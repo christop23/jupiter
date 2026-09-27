@@ -87,7 +87,7 @@ send_notification() {
     local -r urgency="${4:-normal}"
     local -r icon="${5:-}"
 
-    local notify_args=(
+    local -a notify_args=(
         --app-name="$app_name"
         --urgency="$urgency"
     )

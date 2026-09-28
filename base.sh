@@ -203,10 +203,12 @@ install_base_tools() {
 }
 
 install_niri_stack() {
-  info "Installing niri, alacritty, greetd, tuigreet..."
+  info "Installing niri, alacritty, greetd, tuigreet, xdg-desktop-portal..."
   # All packages explicitly named to avoid provider prompts.
   # greetd-tuigreet is named explicitly to settle the greetd-greeter virtual.
-  if sudo stdbuf -oL pacman -S --needed niri alacritty greetd greetd-tuigreet < /dev/tty 2>&1 | log_and_show "${LOG_FILE}"; then
+  # xdg-desktop-portal-gnome and xdg-desktop-portal-gtk provide portal backends
+  # for file chooser, screenshot, and other desktop integration features.
+  if sudo stdbuf -oL pacman -S --needed niri alacritty greetd greetd-tuigreet xdg-desktop-portal-gnome xdg-desktop-portal-gtk < /dev/tty 2>&1 | log_and_show "${LOG_FILE}"; then
     msg "Niri stack installed successfully."
   else
     fatal "Failed to install niri stack."

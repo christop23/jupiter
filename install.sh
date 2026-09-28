@@ -30,7 +30,7 @@ AUR_HELPER=""
 CURRENT_STEP=0
 # Counted from the step calls in main(), which is 18. It was 15 while main()
 # had grown to 19, so the tail of every run announced itself as "STEP 19/15".
-readonly TOTAL_STEPS=18
+readonly TOTAL_STEPS=19
 
 # Installation summary tracking
 declare -a INSTALL_SUMMARY=()
@@ -1481,6 +1481,23 @@ install_wallpapers() {
 }
 
 # ==========================
+# XDG USER DIRS
+# ==========================
+
+update_xdg_user_dirs() {
+  info "Updating XDG user directories..."
+  if command -v xdg-user-dirs-update &> /dev/null; then
+    if xdg-user-dirs-update; then
+      msg "XDG user directories updated."
+    else
+      warn "xdg-user-dirs-update failed. You can run it manually later."
+    fi
+  else
+    warn "xdg-user-dirs-update not found. Install xdg-user-dirs package."
+  fi
+}
+
+# ==========================
 # SYSTEMD SERVICE MANAGEMENT
 # ==========================
 
@@ -1671,6 +1688,10 @@ main() {
   step "Configuring System Services"
   create_systemd_services
   add_summary "Systemd services configured"
+
+  step "Updating XDG User Directories"
+  update_xdg_user_dirs
+  add_summary "XDG user directories updated"
 
   print_summary
 

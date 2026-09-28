@@ -84,6 +84,12 @@ readonly PACMAN_PACKAGES=(
   # Re-check these when the AUR package bumps its dependency list.
   nodejs qt6-base qt6-declarative qt6-svg layer-shell-qt libqalculate
   qtkeychain-qt6 syntax-highlighting
+  # Flips a USB mobile broadband dongle out of the storage-only mode it comes
+  # in, so its real driver can bind and it works as a modem. Nothing in the
+  # configs calls it and no desktop is broken without it, so it is installed
+  # here rather than left to be fetched by hand the first time a dongle is
+  # plugged in and appears as a CD-ROM.
+  usb_modeswitch
 )
 
 # The polkit agent that niri starts, by absolute path, because that is the only

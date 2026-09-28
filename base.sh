@@ -17,7 +17,7 @@ SUDO_PID=""
 
 # Progress tracking
 CURRENT_STEP=0
-readonly TOTAL_STEPS=7
+readonly TOTAL_STEPS=8
 
 # ==========================
 # COLOR OUTPUT
@@ -283,6 +283,52 @@ GREETER_CONFIG
 }
 
 # ==========================
+# PACMAN CONFIGURATION
+# ==========================
+
+configure_pacman_conf() {
+  info "Enabling Color, VerbosePkgLists, and ParallelDownloads in /etc/pacman.conf..."
+  if [ -f /etc/pacman.conf ]; then
+    # VerbosePkgLists goes first because it is the anchor the pair below hangs
+    # off. It has to be uncommented before the anchor test can see it, so the
+    # order of these two is not free.
+    sudo sed -i "/^#VerbosePkgLists/c\VerbosePkgLists" /etc/pacman.conf
+    sudo sed -i "/^#ParallelDownloads/c\ParallelDownloads = 5" /etc/pacman.conf
+
+    # Color and ILoveCandy are a pair: Color turns on pacman's coloured output
+    # and ILoveCandy chooses the progress bar it draws. Setting only the first
+    # gives coloured text with a plain bar, so both are written together.
+    #
+    # Keyed off the state of the file rather than off a commented line. The
+    # stock file has "#Color", but a machine that already has Color enabled --
+    # because the user set it, or because an earlier run of this script did --
+    # has no "#Color" line to match, and a sed whose pattern does not match
+    # changes nothing and reports success. That is how ILoveCandy went missing
+    # on a machine that already had colour. So every variant is deleted first
+    # and the pair is then written unconditionally, which makes the step
+    # idempotent and repairs a file left half-configured.
+    sudo sed -i -e '/^[[:space:]]*#\?Color[[:space:]]*$/d' \
+      -e '/^[[:space:]]*#\?ILoveCandy[[:space:]]*$/d' /etc/pacman.conf
+
+    # The pair goes directly under VerbosePkgLists, which is where the stock
+    # file keeps its block of display options. The anchor is tested rather than
+    # assumed: a file that has no VerbosePkgLists line at all would make the
+    # append a silent no-op, which is the same failure as above, so it falls
+    # back to the top of [options] and says so.
+    if grep -qx 'VerbosePkgLists' /etc/pacman.conf; then
+      sudo sed -i '/^VerbosePkgLists$/a Color\nILoveCandy' /etc/pacman.conf
+    else
+      warn "No VerbosePkgLists line to sit under, putting Color/ILoveCandy at the top of [options]."
+      sudo sed -i '/^\[options\]/a Color\nILoveCandy' /etc/pacman.conf
+    fi
+
+    msg "pacman.conf updated: Color, VerbosePkgLists, ParallelDownloads enabled."
+  else
+    warn "/etc/pacman.conf not found. Skipping."
+  fi
+}
+
+# ==========================
 # PACCACHE TIMER
 # ==========================
 
@@ -361,6 +407,9 @@ main() {
 
   step "Enabling Paccache Timer"
   configure_paccache_timer
+
+  step "Configuring pacman.conf"
+  configure_pacman_conf
 
   print_summary
 

@@ -16,7 +16,7 @@ window#waybar {
 #network:hover,
 #bluetooth:hover,
 #pulseaudio:hover,
-#pulseaudio.microphone:hover,
+#idle_inhibitor:hover,
 #pulseaudio.sink-muted:hover,
 #custom-powermenu:hover {
   opacity: 0.5;
@@ -32,7 +32,7 @@ window#waybar {
 #network,
 #bluetooth,
 #pulseaudio,
-#pulseaudio.microphone,
+#idle_inhibitor,
 #custom-powermenu {
   color: @foreground;
   padding: 6px 0;
@@ -79,8 +79,8 @@ window#waybar {
 #pulseaudio.sink-muted:not(.microphone) {
   color: @color3;
 }
-#pulseaudio.microphone.source-muted {
-  color: @color1;
+#idle_inhibitor.activated {
+  color: @color4;
 }
 
 tooltip {

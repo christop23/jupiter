@@ -125,13 +125,15 @@
   "tooltip-format-enumerate-connected-battery": "{device_address} | Battery: {device_battery_percentage}%",
   "on-click": "rfkill toggle bluetooth"
 },
-"pulseaudio#microphone": {
-  "format": "{format_source}",
-  "format-source": "<span size='14pt'>󰍬</span>",
-  "format-source-muted": "<span size='14pt'>󰍭</span>",
-  "on-click": "pactl set-source-mute @DEFAULT_SOURCE@ toggle",
-  "on-click-right": "pavucontrol -t 4",
-  "tooltip": false
+"idle_inhibitor": {
+  "format": "{icon}",
+  "format-icons": {
+    "activated": "<span size='14pt'>󰅶</span>",
+    "deactivated": "<span size='14pt'>󰾪</span>"
+  },
+  "tooltip": true,
+  "tooltip-format-activated": "Idle inhibitor is active",
+  "tooltip-format-deactivated": "Idle inhibitor is inactive"
 },
 "pulseaudio/slider": {
   "min": 0,

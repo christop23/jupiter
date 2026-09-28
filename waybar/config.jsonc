@@ -15,7 +15,7 @@
     "group/extras",
     "network",
     "bluetooth",
-    "pulseaudio#microphone",
+    "idle_inhibitor",
     "group/audio"
   ]
 }

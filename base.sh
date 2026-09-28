@@ -263,12 +263,18 @@ configure_greeter() {
     sudo cp -f "${config_file}" "${config_file}.jupiter-backup" 2> /dev/null || true
   fi
 
+  # --background matrix paints the digital rain behind the login form. tuigreet
+  # draws the form on top and clears the cells it covers, so the prompt stays
+  # readable. Animations are off by default, and F4 opens a menu to switch to
+  # doom or back to none, so the animation is not baked in. Stream length, fall
+  # speed and the three green bands live in [background.matrix] in
+  # /etc/tuigreet/config.toml, which tuigreet hot-reloads while it runs.
   sudo tee "${config_file}" > /dev/null 2>&1 << 'GREETER_CONFIG'
 [terminal]
 vt = 1
 
 [default_session]
-command = "tuigreet --time --remember --asterisks --cmd niri-session"
+command = "tuigreet --time --remember --asterisks --background matrix --cmd niri-session"
 user = "greeter"
 GREETER_CONFIG
 

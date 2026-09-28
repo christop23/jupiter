@@ -17,7 +17,7 @@ SUDO_PID=""
 
 # Progress tracking
 CURRENT_STEP=0
-readonly TOTAL_STEPS=6
+readonly TOTAL_STEPS=7
 
 # ==========================
 # COLOR OUTPUT
@@ -208,7 +208,7 @@ install_niri_stack() {
   # greetd-tuigreet is named explicitly to settle the greetd-greeter virtual.
   # xdg-desktop-portal-gnome and xdg-desktop-portal-gtk provide portal backends
   # for file chooser, screenshot, and other desktop integration features.
-  if sudo stdbuf -oL pacman -S --needed niri alacritty greetd greetd-tuigreet xdg-desktop-portal-gnome xdg-desktop-portal-gtk < /dev/tty 2>&1 | log_and_show "${LOG_FILE}"; then
+  if sudo stdbuf -oL pacman -S --needed niri alacritty greetd greetd-tuigreet xdg-desktop-portal-gnome xdg-desktop-portal-gtk pacman-contrib < /dev/tty 2>&1 | log_and_show "${LOG_FILE}"; then
     msg "Niri stack installed successfully."
   else
     fatal "Failed to install niri stack."
@@ -283,6 +283,20 @@ GREETER_CONFIG
 }
 
 # ==========================
+# PACCACHE TIMER
+# ==========================
+
+configure_paccache_timer() {
+  info "Enabling paccache timer..."
+  if sudo systemctl enable --now paccache.timer > /dev/null 2>&1; then
+    msg "paccache timer enabled. Old package cache entries will be cleaned automatically."
+  else
+    warn "Failed to enable paccache.timer. You can enable it manually with:"
+    warn "  sudo systemctl enable --now paccache.timer"
+  fi
+}
+
+# ==========================
 # MAIN INSTALLATION FLOW
 # ==========================
 
@@ -344,6 +358,9 @@ main() {
 
   step "Configuring Greetd + Tuigreet"
   configure_greeter
+
+  step "Enabling Paccache Timer"
+  configure_paccache_timer
 
   print_summary
 

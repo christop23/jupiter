@@ -73,10 +73,16 @@ binds {
     MOD+W                               hotkey-overlay-title="Open Wallpaper Selector" { spawn-sh "$HOME/.config/scripts/bgselector.sh"; }
     // The power menu was reachable only from the waybar module, so it was
     // unusable without a pointer. P is free in the single-key column, as are
-    // A D G I N O R U V X Y Z -- A freed up when the launcher moved to
-    // MOD+SPACE. The hjkl pairs further down are deliberate and sit alongside the
-    // arrow forms rather than replacing them.
+    // A D I N O R U V X Y Z -- A freed up when the launcher moved to
+    // MOD+SPACE, G when Steam took it below. The hjkl pairs further down are
+    // deliberate and sit alongside the arrow forms rather than replacing them.
     MOD+P                               hotkey-overlay-title="Open Power Menu" { spawn-sh "$HOME/.config/scripts/powermenu.sh"; }
+    // -bigpicture is the flag Steam already documents for starting in its
+    // console UI, and it works on a cold start, which the desktop file's
+    // steam://open/bigpicture action does not: that one only takes effect on a
+    // client that is already running. Launched here rather than through a
+    // .desktop override so the key and the flag it passes stay in one place.
+    MOD+G                               hotkey-overlay-title="Steam: Big Picture" { spawn-sh "steam -bigpicture"; }
 
     // Window Management
     MOD+Q                               { close-window; }

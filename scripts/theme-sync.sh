@@ -172,10 +172,17 @@ map_to_gtk_theme() {
       fi
       ;;
     "rose-pine")
+      # -Moon, because that is the name the theme actually installs under.
+      # The mapping said Rosepine-Light and Rosepine-Dark, and neither exists:
+      # the theme is Rosepine-Light-Moon and Rosepine-Dark-Moon. set_gtk_theme
+      # checks that the directory exists before applying, so the wrong name did
+      # not fall back to something, it refused the change and kept whatever
+      # theme was already set, which left a Rose-Pine wallpaper wearing
+      # Catppuccin icons on top of the previous scheme's GTK theme.
       if [[ "$variation" == "light" ]]; then
-        echo "Rosepine-Light"
+        echo "Rosepine-Light-Moon"
       else
-        echo "Rosepine-Dark"
+        echo "Rosepine-Dark-Moon"
       fi
       ;;
     # No tokyo-night arm. There is no wallpapers/Tokyo-Night directory and
@@ -249,8 +256,14 @@ map_to_icon_theme() {
         echo "Colloid-Everforest-Dark"
       fi
       ;;
-    "rose-pine" | "tokyo-night")
-      # catppuccin for rose-pine and tokyo-night as requested
+    # No tokyo-night arm, for the reason given in map_to_gtk_theme. This one
+    # was left behind when that arm was removed: there is no
+    # wallpapers/Tokyo-Night directory, so no wallpaper can name it, and
+    # install.sh installs no Tokyonight icons either. It was harmless here,
+    # because the Catppuccin names it returned do exist, so it was dead code
+    # rather than a second way to ask for a theme that is not installed.
+    "rose-pine")
+      # catppuccin for rose-pine, as there is no Colloid Rose-Pine variant
       if [[ "$variation" == "light" ]]; then
         echo "Colloid-Catppuccin-Light"
       else

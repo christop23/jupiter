@@ -19,22 +19,17 @@ choose() {
     printf '%s\n' "${selection}"
 }
 
-confirm() {
-    local action="$1"
-    local answer
-
-    if ! answer="$(choose "Confirm ${action}?" "Cancel" "Confirm")"; then
-        return 1
-    fi
-
-    [[ "${answer}" == "Confirm" ]]
-}
-
 if ! action="$(choose "Power menu" "Lock screen" "Suspend" "Log out" "Restart" "Shut down")"; then
     # Closing dmenu is a normal way to cancel the menu.
     exit 0
 fi
 
+# No second prompt. Picking an entry is already the decision: the entries name
+# what they do, and a dialog in front of one the user just chose by name is a
+# step to dismiss rather than a decision to make. Lock screen never had one, so
+# the two kinds of entry disagreed about whether to ask, for no reason a user
+# could see. Suspending still locks first, which is an ordering concern and not
+# a question.
 case "${action}" in
     "Lock screen")
         exec gtklock
@@ -43,24 +38,16 @@ case "${action}" in
         # Locked first, then suspended, by the shared script. The logic lives
         # there rather than here so the MOD+P binding in niri/config.kdl and the
         # waybar module both go through one copy of it.
-        if confirm "suspend"; then
-            exec "${HOME}/.config/scripts/lock-and-suspend.sh"
-        fi
+        exec "${HOME}/.config/scripts/lock-and-suspend.sh"
         ;;
     "Log out")
-        if confirm "log out"; then
-            niri msg action quit --skip-confirmation
-        fi
+        niri msg action quit --skip-confirmation
         ;;
     "Restart")
-        if confirm "restart"; then
-            systemctl reboot
-        fi
+        systemctl reboot
         ;;
     "Shut down")
-        if confirm "shut down"; then
-            systemctl poweroff
-        fi
+        systemctl poweroff
         ;;
     *)
         # Unreachable with the menu above as the only source, and the choose()

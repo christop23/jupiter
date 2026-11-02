@@ -125,16 +125,6 @@
   "tooltip-format-enumerate-connected-battery": "{device_address} | Battery: {device_battery_percentage}%",
   "on-click": "rfkill toggle bluetooth"
 },
-"idle_inhibitor": {
-  "format": "{icon}",
-  "format-icons": {
-    "activated": "<span size='14pt'>󰅶</span>",
-    "deactivated": "<span size='14pt'>󰾪</span>"
-  },
-  "tooltip": true,
-  "tooltip-format-activated": "Idle inhibitor is active",
-  "tooltip-format-deactivated": "Idle inhibitor is inactive"
-},
 "pulseaudio/slider": {
   "min": 0,
   "max": 100,

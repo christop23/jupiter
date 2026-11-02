@@ -15,7 +15,6 @@
     "group/extras",
     "network",
     "bluetooth",
-    "idle_inhibitor",
     "group/audio"
   ]
 }
